@@ -1,0 +1,16 @@
+# 归档目录（历史版本、备份文件）
+.archive/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.log
