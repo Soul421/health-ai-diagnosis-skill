@@ -1,6 +1,6 @@
 ---
 name: health-ai-diagnosis
-version: 1.5.0
+version: 1.6.0
 description: 健康行业AI落地诊断工具。当用户提到以下任一情况时触发：（1）企业想做AI诊断/AI落地诊断/数字化转型诊断；（2）问"我的企业适不适合用AI"、"AI能帮我省多少钱"、"AI怎么落地"；（3）健康/大健康行业企业咨询AI相关问题；（4）企业降本增效、人力优化、自动化改造咨询；（5）门店服务质量诊断/录音豆/服务复盘/门店合规检查；（6）健康连锁门店数字化转型咨询。诊断流程：收集企业信息→动态评分→ROI分析→场景推荐→路线图→门店诊断（可选）。输出完整诊断报告。
 author: 范铧屿
 tags:
@@ -228,7 +228,130 @@ Step 6: 门店诊断（可选，检测到门店/连锁触发）
 
 ---
 
-## 七、输出要求与文件引用
+---
+
+## 七、脚本调用规则
+
+### 核心原则：计算类工作优先调用脚本，LLM负责解读和表达
+
+所有评分、场景推荐、ROI测算等**数值计算类工作**，必须优先调用 `scripts/` 目录下的 Python 脚本完成计算。LLM 只负责三件事：
+1. 收集输入数据（从对话中提取结构化参数）
+2. 解读计算结果（把数字翻译成业务语言）
+3. 自然语言表达（用用户能听懂的话讲出来）
+
+**为什么脚本化？**
+- **准确性**：固定公式计算，比 LLM 自由计算准确率更高
+- **稳定性**：每次结果一致，不会因 prompt 波动
+- **可追溯**：计算过程可复现、可调试
+- **可扩展**：新增场景、权重调整只需改脚本，不用改 prompt
+
+---
+
+### 7.1 五维度评分引擎 `scripts/calculate_score.py`
+
+**用途**：问卷收集完成后，计算企业 AI 落地准备度的五维度综合评分。
+
+**输入**（JSON）：
+```json
+{
+  "industry_type": "medical",
+  "digital_base": 18,
+  "resource_readiness": 13,
+  "pain_urgency": 19,
+  "team_acceptance": 11,
+  "compliance_risk": 9
+}
+```
+
+**调用方式**：
+```bash
+python3 scripts/calculate_score.py --input '{"industry_type":"medical","digital_base":18,...}'
+# 或通过 stdin: echo '{...}' | python3 scripts/calculate_score.py
+```
+
+**输出**：原始分、应用权重、加权得分、总分（百分制）、诊断结论、S/A/B/C 等级。
+
+**调用时机**：问卷收集完成 → 检查点评分确认 → 调用脚本计算 → 结果填入报告摘要
+
+---
+
+### 7.2 场景优先级计算引擎 `scripts/calculate_scenarios.py`
+
+**用途**：根据企业特征动态计算 10 个 AI 场景的综合得分并排序。
+
+**输入**（JSON）：
+```json
+{
+  "top_pains": ["客服人力成本高", "缺乏内容创作能力", "门店服务质量差"],
+  "has_crm": true,
+  "has_erp": false,
+  "has_ai_experience": false,
+  "has_tech_team": false,
+  "digital_systems_count": 3,
+  "customer_service_team_size": 15,
+  "content_team_size": 5,
+  "store_count": 30,
+  "annual_revenue_level": "5000万-1亿",
+  "budget_level": "20-100万",
+  "is_chain_store": true
+}
+```
+
+**调用方式**：
+```bash
+python3 scripts/calculate_scenarios.py --input '{...}'
+```
+
+**输出**：10 个场景的综合得分（百分制）及排名、Top 3 推荐场景。
+
+**包含场景**：智能客服、AI内容生成、私域运营AI、数据分析AI、AI培训助手、AI直播/数字人、智能排班、HR招聘AI、AI诊断辅助、门店服务诊断
+
+**调用时机**：痛点排序完成后 → 调用脚本计算 → Top3 场景填入报告
+
+---
+
+### 7.3 ROI 三档测算引擎 `scripts/calculate_roi.py`
+
+**用途**：根据团队结构和预算，计算保守/中性/乐观三档回本周期和隐性成本。
+
+**输入**（JSON）：
+```json
+{
+  "team_structure": {
+    "customer_service": {"count": 15, "avg_salary": 5000},
+    "content": {"count": 5, "avg_salary": 6000},
+    "operations": {"count": 8, "avg_salary": 7000},
+    "sales": {"count": 12, "avg_salary": 6000},
+    "admin_hr": {"count": 4, "avg_salary": 5000}
+  },
+  "budget": 300000,
+  "team_acceptance": "medium",
+  "digital_base": "medium"
+}
+```
+
+**调用方式**：
+```bash
+python3 scripts/calculate_roi.py --input '{...}'
+```
+
+**输出**：年人力成本、6个月/2年两档年节省、三档回本周期（月）、隐性成本明细、两种策略对比（消灭岗位 vs 优化流程）。
+
+**调用时机**：经营数据收集完成 → 调用脚本计算 → 用于 ROI 模块和两种策略对比
+
+---
+
+### 7.4 自测与验证
+
+每个脚本都支持 `--self-test` 参数，一键运行内置测试用例：
+
+```bash
+python3 scripts/calculate_score.py --self-test
+python3 scripts/calculate_scenarios.py --self-test
+python3 scripts/calculate_roi.py --self-test
+```
+
+## 八、输出要求与文件引用
 
 ### 7.1 报告模板
 
@@ -263,7 +386,7 @@ Step 6: 门店诊断（可选，检测到门店/连锁触发）
 
 ---
 
-## 八、references加载策略
+## 九、references加载策略
 
 **默认不加载** `references/` 目录下的文件，仅在以下情况读取：
 
@@ -277,7 +400,27 @@ Step 6: 门店诊断（可选，检测到门店/连锁触发）
 
 ---
 
-## 九、版本更新日志
+## 十、版本更新日志
+
+### v1.6.0（2026-07-04）核心计算脚本化
+
+**🔴 架构升级：从纯 prompt 驱动 → "脚本计算+LLM解读"**
+- 新增 `scripts/calculate_score.py`：五维度评分引擎，支持4种行业动态权重校准
+- 新增 `scripts/calculate_scenarios.py`：10个AI场景优先级动态计算引擎，支持痛点/系统/团队/预算多维度调整
+- 新增 `scripts/calculate_roi.py`：ROI三档测算引擎，含6个月/2年两档替代率、隐性成本、两种策略对比
+- 所有计算类工作从 prompt 逻辑改为脚本执行，LLM 只负责数据收集和结果解读
+
+**🟡 计算精度提升**
+- 评分从简单加权改为百分制归一化 + 动态权重，结果更精确
+- 场景优先级从4因子扩展到多维度动态调整，更贴合企业实际情况
+- ROI 增加团队接受度和数字化基础的调整系数，三档回本更真实
+
+**🟢 可维护性**
+- 三个脚本均支持 `--self-test` 自测，内置康源健康等测试用例
+- 计算公式集中管理，修改不影响 prompt
+- 输出 JSON 格式，便于后续集成和扩展
+
+---
 
 ### v1.5.0（2026-07-03）架构重构
 
