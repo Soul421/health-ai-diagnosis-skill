@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-五维度AI落地评分引擎
+五维度AI落地评分引擎（v1.9.0升级）
 根据企业问卷答案计算5维度评分总分，支持按行业类型动态权重校准。
+新增：轻量模式/完整模式自动判断，适配不同预算企业。
 """
 
 import json
@@ -53,13 +54,66 @@ DIMENSION_MAX = {
     "compliance_risk": 15,
 }
 
-# 诊断结论映射表（百分制）
-CONCLUSION_MAP = [
-    {"min": 85, "max": 100, "level": "S", "conclusion": "准备充分，建议立即启动"},
-    {"min": 70, "max": 84, "level": "A", "conclusion": "条件较好，建议优先试点"},
-    {"min": 55, "max": 69, "level": "B", "conclusion": "有一定基础，建议先补短板"},
+# 诊断结论映射表（百分制）- 完整版
+CONCLUSION_MAP_FULL = [
+    {"min": 85, "max": 100, "level": "S", "conclusion": "准备充分，建议立即启动全面AI落地"},
+    {"min": 70, "max": 84, "level": "A", "conclusion": "条件较好，建议优先试点后快速推广"},
+    {"min": 55, "max": 69, "level": "B", "conclusion": "有一定基础，建议先补短板再推进"},
     {"min": 0, "max": 54, "level": "C", "conclusion": "基础不足，建议先做数字化基础建设"},
 ]
+
+# 诊断结论映射表（百分制）- 轻量版
+# 轻量模式下结论更积极，鼓励从小处着手
+CONCLUSION_MAP_LIGHT = [
+    {"min": 85, "max": 100, "level": "S", "conclusion": "基础很好，建议立即启动轻量AI落地，2周见效"},
+    {"min": 70, "max": 84, "level": "A", "conclusion": "条件不错，建议选1个痛点先做MVP验证"},
+    {"min": 55, "max": 69, "level": "B", "conclusion": "可以起步，建议从内容生成或智能客服试水"},
+    {"min": 40, "max": 54, "level": "C", "conclusion": "基础一般，但低成本试水没问题，先做起来"},
+    {"min": 0, "max": 39, "level": "D", "conclusion": "基础较弱，建议先用免费工具试试水，培养感觉"},
+]
+
+
+def detect_mode(input_data):
+    """
+    根据企业特征自动判断模式
+
+    判断逻辑：
+    - 预算 < 20万 → 轻量模式
+    - 员工 < 50人 → 轻量模式
+    - 年营收 < 3000万 → 轻量模式
+    - 门店 < 5家 → 轻量模式
+    - 其他 → 完整模式
+    """
+    budget_wan = input_data.get("budget_wan")
+    employee_count = input_data.get("employee_count")
+    annual_revenue_wan = input_data.get("annual_revenue_wan")
+    store_count = input_data.get("store_count")
+    forced_mode = input_data.get("mode")
+
+    if forced_mode and forced_mode in ["light", "full"]:
+        return forced_mode
+
+    # 预算判断（优先）
+    if budget_wan is not None and budget_wan > 0:
+        if budget_wan <= 20:
+            return "light"
+        if budget_wan >= 50:
+            return "full"
+
+    # 员工数判断
+    if employee_count is not None and employee_count < 50:
+        return "light"
+
+    # 年营收判断
+    if annual_revenue_wan is not None and annual_revenue_wan < 3000:
+        return "light"
+
+    # 门店数判断
+    if store_count is not None and store_count < 5:
+        return "light"
+
+    # 默认完整模式
+    return "full"
 
 
 def calculate_score(input_data):
@@ -68,12 +122,17 @@ def calculate_score(input_data):
 
     Args:
         input_data: dict，包含以下字段：
-            - industry_type: str，行业类型 (default/medical/online/experiential)
-            - digital_base: int/float，数字化基础得分 (0-25)
-            - resource_readiness: int/float，资源准备度得分 (0-20)
-            - pain_urgency: int/float，痛点紧迫度得分 (0-25)
-            - team_acceptance: int/float，团队接受度得分 (0-15)
-            - compliance_risk: int/float，合规风险得分 (0-15，风险越低分越高)
+            - industry_type: str，行业类型
+            - digital_base: 数字化基础得分 (0-25)
+            - resource_readiness: 资源准备度得分 (0-20)
+            - pain_urgency: 痛点紧迫度得分 (0-25)
+            - team_acceptance: 团队接受度得分 (0-15)
+            - compliance_risk: 合规风险得分 (0-15，风险越低分越高)
+            - mode: light/full/auto（可选）
+            - budget_wan: 预算（万元，可选，用于模式判断）
+            - employee_count: 员工数（可选）
+            - annual_revenue_wan: 年营收（万元，可选）
+            - store_count: 门店数（可选）
 
     Returns:
         dict，完整的评分结果
@@ -93,7 +152,7 @@ def calculate_score(input_data):
         "compliance_risk": input_data.get("compliance_risk", 0),
     }
 
-    # 校验分数范围，确保不超过满分
+    # 校验分数范围
     for dim, score in raw_scores.items():
         max_score = DIMENSION_MAX[dim]
         if score < 0:
@@ -101,29 +160,35 @@ def calculate_score(input_data):
         elif score > max_score:
             raw_scores[dim] = max_score
 
-    # 计算加权得分（各维度先归一化到百分制，再加权）
+    # 计算加权得分
     weighted_scores = {}
     total_score = 0.0
     for dim in raw_scores:
-        # 归一化到100分制
         normalized = (raw_scores[dim] / DIMENSION_MAX[dim]) * 100
-        # 应用权重
         weighted = normalized * weights[dim]
         weighted_scores[dim] = round(weighted, 1)
         total_score += weighted
 
     total_score = round(total_score, 1)
 
-    # 确定等级和结论
-    level = "C"
-    conclusion = "基础不足，建议先做数字化基础建设"
-    for item in CONCLUSION_MAP:
+    # 自动判断模式
+    mode = detect_mode(input_data)
+
+    # 根据模式选择结论映射
+    conclusion_map = CONCLUSION_MAP_LIGHT if mode == "light" else CONCLUSION_MAP_FULL
+    level = conclusion_map[-1]["level"]
+    conclusion = conclusion_map[-1]["conclusion"]
+    for item in conclusion_map:
         if item["min"] <= total_score <= item["max"]:
             level = item["level"]
             conclusion = item["conclusion"]
             break
 
     return {
+        "version": "1.9.0",
+        "mode": mode,
+        "mode_label": "轻量模式" if mode == "light" else "完整模式",
+        "industry_type": industry_type,
         "raw_scores": raw_scores,
         "weights": weights,
         "weighted_scores": weighted_scores,
@@ -134,7 +199,7 @@ def calculate_score(input_data):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="五维度AI落地评分引擎")
+    parser = argparse.ArgumentParser(description="五维度AI落地评分引擎 v1.9.0")
     parser.add_argument("--input", "-i", help="输入JSON文件路径，或直接传入JSON字符串")
     parser.add_argument("--industry", default="default",
                         help="行业类型：default/medical/online/experiential")
@@ -143,6 +208,8 @@ def main():
     parser.add_argument("--pain-urgency", type=float, help="痛点紧迫度得分 (0-25)")
     parser.add_argument("--team-acceptance", type=float, help="团队接受度得分 (0-15)")
     parser.add_argument("--compliance-risk", type=float, help="合规风险得分 (0-15)")
+    parser.add_argument("--mode", choices=["light", "full", "auto"], default="auto",
+                        help="模式：light(轻量)/full(完整)/auto(自动)")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
 
@@ -150,7 +217,7 @@ def main():
     if args.self_test:
         test_cases = [
             {
-                "name": "康源健康（连锁药店，30家门店）",
+                "name": "康源健康（连锁药店，30家门店）- 完整模式",
                 "input": {
                     "industry_type": "medical",
                     "digital_base": 18,
@@ -158,50 +225,65 @@ def main():
                     "pain_urgency": 19,
                     "team_acceptance": 11,
                     "compliance_risk": 9,
+                    "budget_wan": 50,
+                    "employee_count": 200,
+                    "annual_revenue_wan": 8000,
+                    "store_count": 30,
                 },
             },
             {
-                "name": "默认行业 - 高分案例",
+                "name": "小型会销企业（5家店，50人）- 轻量模式",
                 "input": {
-                    "industry_type": "default",
-                    "digital_base": 23,
-                    "resource_readiness": 18,
-                    "pain_urgency": 22,
-                    "team_acceptance": 13,
-                    "compliance_risk": 12,
-                },
-            },
-            {
-                "name": "默认行业 - 低分案例",
-                "input": {
-                    "industry_type": "default",
+                    "industry_type": "experiential",
                     "digital_base": 8,
-                    "resource_readiness": 5,
+                    "resource_readiness": 7,
+                    "pain_urgency": 18,
+                    "team_acceptance": 8,
+                    "compliance_risk": 8,
+                    "budget_wan": 6,
+                    "employee_count": 50,
+                    "annual_revenue_wan": 2000,
+                    "store_count": 5,
+                },
+            },
+            {
+                "name": "微型企业（低分案例）- 轻量模式",
+                "input": {
+                    "industry_type": "default",
+                    "digital_base": 5,
+                    "resource_readiness": 3,
                     "pain_urgency": 10,
                     "team_acceptance": 4,
                     "compliance_risk": 5,
+                    "budget_wan": 2,
+                    "employee_count": 10,
+                    "annual_revenue_wan": 300,
+                    "store_count": 1,
                 },
             },
         ]
         print("=" * 60)
-        print("五维度评分引擎 - 自测")
+        print("五维度评分引擎 v1.9.0 - 自测")
         print("=" * 60)
         all_passed = True
         for i, test in enumerate(test_cases, 1):
             result = calculate_score(test["input"])
             print(f"\n【测试 {i}】{test['name']}")
-            print(f"  行业类型: {test['input']['industry_type']}")
-            print(f"  原始得分: {test['input']}")
+            print(f"  模式: {result['mode_label']} (mode={result['mode']})")
+            print(f"  行业类型: {result['industry_type']}")
+            print(f"  原始得分: {result['raw_scores']}")
             print(f"  加权得分: {result['weighted_scores']}")
             print(f"  总分: {result['total_score']} / 100")
             print(f"  等级: {result['level']}级")
             print(f"  结论: {result['conclusion']}")
 
-            # 简单校验
-            passed = 0 <= result["total_score"] <= 100
+            passed = (
+                0 <= result["total_score"] <= 100
+                and result["mode"] in ["light", "full"]
+            )
             if not passed:
                 all_passed = False
-                print(f"  ❌ 总分超出范围!")
+                print(f"  ❌ 校验失败!")
             else:
                 print(f"  ✅ 正常")
 
@@ -217,26 +299,22 @@ def main():
     input_data = {}
 
     if args.input:
-        # 尝试从文件或字符串读取
         try:
             with open(args.input, "r", encoding="utf-8") as f:
                 input_data = json.load(f)
         except (FileNotFoundError, OSError):
-            # 可能是JSON字符串
             try:
                 input_data = json.loads(args.input)
             except json.JSONDecodeError:
                 print(f"错误: 无法解析输入 '{args.input}'", file=sys.stderr)
                 return 1
     elif not sys.stdin.isatty():
-        # 从stdin读取
         try:
             input_data = json.load(sys.stdin)
         except json.JSONDecodeError:
             print("错误: 标准输入不是有效的JSON", file=sys.stderr)
             return 1
     else:
-        # 使用命令行参数
         input_data = {
             "industry_type": args.industry,
             "digital_base": args.digital_base if args.digital_base is not None else 0,
@@ -245,9 +323,14 @@ def main():
             "team_acceptance": args.team_acceptance if args.team_acceptance is not None else 0,
             "compliance_risk": args.compliance_risk if args.compliance_risk is not None else 0,
         }
+        if args.mode != "auto":
+            input_data["mode"] = args.mode
         if args.digital_base is None and args.resource_readiness is None:
             parser.print_help()
             return 1
+
+    if args.mode != "auto":
+        input_data["mode"] = args.mode
 
     result = calculate_score(input_data)
     print(json.dumps(result, ensure_ascii=False, indent=2))
