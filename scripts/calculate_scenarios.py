@@ -1,14 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AI场景优先级动态计算引擎（v1.9.0升级）
+AI场景优先级动态计算引擎（v1.11.0升级）
 根据企业特征动态计算10个AI场景的综合得分并排序。
 支持轻量模式：优先推荐低成本快见效场景，增加"2周可落地"标记。
+v1.11.0 新增：全场景工具化 - 每个场景输出工具推荐、预算明细、落地周期。
 """
 
 import json
 import sys
+import os
 import argparse
+
+# ===== 本体知识库导入（v1.11.0 新增）=====
+_HAS_ONTOLOGY = False
+SCENARIO_BASELINE = {}
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from ontology import SCENARIO_BASELINE as _ONTOLOGY_SCENARIOS
+    SCENARIO_BASELINE = _ONTOLOGY_SCENARIOS
+    _HAS_ONTOLOGY = True
+except ImportError:
+    pass
+
+# ===== 场景名称到 ontology key 的映射（v1.11.0 新增）=====
+SCENE_NAME_TO_ONTOLOGY_KEY = {
+    "智能客服": "customer_service",
+    "AI内容生成": "content_marketing",
+    "私域运营AI": "private_domain",
+    "数据分析AI": "data_analysis",
+    "AI培训助手": "training_learning",
+    "AI直播/数字人": "content_marketing",  # 暂映射到内容生成
+    "智能排班": "supply_chain",  # 暂映射到供应链
+    "HR招聘AI": "training_learning",  # 暂映射到培训
+    "AI诊断辅助": "product_recommendation",  # 暂映射到产品推荐
+    "门店服务诊断": "store_monitor",
+}
 
 # ===== 基准得分表 =====
 BASE_SCENARIOS = [
@@ -338,6 +365,13 @@ def calculate_scenarios(input_data):
             tags.append("重投入")
         s["tags"] = tags
 
+        # ===== v1.11.0 新增：从本体知识库获取工具/预算/时间线 =====
+        tool_info = _get_scenario_tools(scenario["name"])
+        if tool_info:
+            s["tools"] = tool_info["tools"]
+            s["budget"] = tool_info["budget"]
+            s["timeline"] = tool_info["timeline"]
+
         # 移除辅助字段
         s.pop("related_pains", None)
 
@@ -357,8 +391,12 @@ def calculate_scenarios(input_data):
     mvp_candidates = [s for s in results if s["two_week_launch"]]
     mvp_first = mvp_candidates[0]["name"] if mvp_candidates else top3[0]
 
+    # ===== v1.11.0 新增：预算档位推荐和总预算估算 =====
+    recommended_tier = _recommend_budget_tier(input_data)
+    total_budget = _calculate_total_budget(results[:3], recommended_tier)
+
     return {
-        "version": "1.9.0",
+        "version": "1.11.0",
         "mode": mode,
         "mode_label": "轻量模式" if mode == "light" else "完整模式",
         "scenarios": results,
@@ -366,6 +404,9 @@ def calculate_scenarios(input_data):
         "mvp_first_choice": mvp_first,
         "two_week_scenarios": [s["name"] for s in results if s["two_week_launch"]],
         "light_weight_scenarios": [s["name"] for s in results if s["light_weight"]],
+        "recommended_tier": recommended_tier,
+        "recommended_tier_label": {"light": "轻量版", "standard": "标准版", "advanced": "进阶版"}.get(recommended_tier, "标准版"),
+        "top3_budget_estimate": total_budget,
     }
 
 
@@ -382,6 +423,84 @@ def _auto_detect_mode(budget_num=0, revenue_num=0, store_count=0, digital_system
         return "light"
     # 默认完整模式
     return "full"
+
+
+# ===== v1.11.0 新增：工具化辅助函数 =====
+
+def _get_scenario_tools(scene_name):
+    """从本体知识库获取场景的工具、预算、时间线信息"""
+    if not _HAS_ONTOLOGY:
+        return None
+    ontology_key = SCENE_NAME_TO_ONTOLOGY_KEY.get(scene_name)
+    if not ontology_key:
+        return None
+    scenario_data = SCENARIO_BASELINE.get(ontology_key)
+    if not scenario_data:
+        return None
+    return {
+        "tools": scenario_data.get("tools", {}),
+        "budget": scenario_data.get("budget", {}),
+        "timeline": scenario_data.get("timeline", []),
+    }
+
+
+def _recommend_budget_tier(input_data):
+    """根据企业规模推荐预算档位
+    返回: light / standard / advanced
+    """
+    revenue_num = _parse_revenue(input_data.get("annual_revenue_level", ""))
+    employee_count = input_data.get("employee_count", 0)
+    store_count = input_data.get("store_count", 0)
+    budget_num = _parse_budget(input_data.get("budget_level", ""))
+
+    # 明确预算充足直接推荐高级版
+    if budget_num >= 50:
+        return "advanced"
+    if budget_num >= 10 and budget_num < 50:
+        return "standard"
+    if budget_num > 0 and budget_num < 10:
+        return "light"
+
+    # 根据营收判断
+    if revenue_num >= 10000:  # 1亿以上
+        return "advanced"
+    if revenue_num >= 1000 and revenue_num < 10000:  # 1000万-1亿
+        return "standard"
+    if revenue_num < 1000 and revenue_num > 0:  # 1000万以下
+        return "light"
+
+    # 根据员工数判断
+    if employee_count >= 200:
+        return "advanced"
+    if employee_count >= 50 and employee_count < 200:
+        return "standard"
+    if employee_count > 0 and employee_count < 50:
+        return "light"
+
+    # 根据门店数判断
+    if store_count >= 50:
+        return "advanced"
+    if store_count >= 10 and store_count < 50:
+        return "standard"
+
+    # 默认标准版
+    return "standard"
+
+
+def _calculate_total_budget(top_scenarios, tier):
+    """计算Top N场景的总预算估算（元→万元显示）"""
+    total_first_year = 0
+    total_recurring = 0
+    for s in top_scenarios:
+        if "budget" in s and tier in s["budget"]:
+            b = s["budget"][tier]
+            total_first_year += b.get("first_year_total", 0)
+            total_recurring += b.get("recurring_year_total", 0)
+    return {
+        "tier": tier,
+        "first_year_total_wan": round(total_first_year / 10000, 1),
+        "recurring_total_wan": round(total_recurring / 10000, 1),
+    }
 
 
 def _pain_matches_scenario(pain_text, related_pains):
@@ -507,7 +626,7 @@ def main():
         ]
 
         print("=" * 70)
-        print("AI场景优先级计算引擎 v1.9.0 - 自测")
+        print("AI场景优先级计算引擎 v1.11.0 - 自测")
         print("=" * 70)
 
         all_passed = True
@@ -515,19 +634,24 @@ def main():
             result = calculate_scenarios(test["input"])
             print(f"\n【测试 {i}】{test['name']}")
             print(f"  模式: {result['mode_label']} (mode={result['mode']})")
+            print(f"  推荐档位: {result['recommended_tier_label']}")
             print(f"  Top 3痛点: {test['input']['top_pains']}")
             print(f"  门店数: {test['input']['store_count']}, 客服: {test['input']['customer_service_team_size']}人")
             print(f"  营收: {test['input']['annual_revenue_level']}, 预算: {test['input']['budget_level']}")
             print(f"\n  场景排名 (Top 5):")
             for s in result["scenarios"][:5]:
                 tag_str = " ".join([f"[{t}]" for t in s["tags"]])
+                has_tools = "✓工具" if "tools" in s and s["tools"] else " "
                 print(f"    {s['rank']}. {s['name']:12s}  得分: {s['score']:5.1f}  "
                       f"[痛点:{s['pain_match']:.1f} 技术:{s['tech_maturity']:.1f} "
                       f"ROI:{s['roi']:.1f} 难度:{s['difficulty']:.1f}] "
-                      f"{tag_str}")
+                      f"{tag_str} {has_tools}")
             print(f"\n  Top 3推荐: {result['top3']}")
             print(f"  MVP首选: {result['mvp_first_choice']}")
             print(f"  2周可落地: {result['two_week_scenarios']}")
+            if result["top3_budget_estimate"]["first_year_total_wan"] > 0:
+                print(f"  Top3首年预算({result['recommended_tier_label']}): {result['top3_budget_estimate']['first_year_total_wan']}万")
+                print(f"  Top3次年续费({result['recommended_tier_label']}): {result['top3_budget_estimate']['recurring_total_wan']}万")
 
             # 校验
             passed = (
@@ -536,6 +660,8 @@ def main():
                 and len(result["top3"]) == 3
                 and "two_week_scenarios" in result
                 and "light_weight_scenarios" in result
+                and "recommended_tier" in result
+                and "top3_budget_estimate" in result
             )
             if not passed:
                 all_passed = False

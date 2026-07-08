@@ -1,0 +1,21 @@
+{
+  "top_pains": ["门店服务质量参差不齐", "客户复购率低", "新员工培训成本高", "合规风险高", "人力成本高"],
+  "pain_urgency": {
+    "门店服务质量参差不齐": 5,
+    "客户复购率低": 5,
+    "新员工培训成本高": 4,
+    "合规风险高": 5,
+    "人力成本高": 4
+  },
+  "has_crm": true,
+  "has_erp": false,
+  "has_ai_experience": false,
+  "has_tech_team": false,
+  "digital_systems_count": 3,
+  "customer_service_team_size": 25,
+  "content_team_size": 6,
+  "store_count": 28,
+  "annual_revenue_level": "1亿以上",
+  "budget_level": "50-100万",
+  "is_chain_store": true
+}

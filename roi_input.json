@@ -1,0 +1,12 @@
+{
+  "team_structure": {
+    "customer_service": {"count": 25, "avg_salary": 5500},
+    "content": {"count": 6, "avg_salary": 7000},
+    "operations": {"count": 20, "avg_salary": 6500},
+    "sales": {"count": 80, "avg_salary": 6000},
+    "admin_hr": {"count": 8, "avg_salary": 5500}
+  },
+  "budget": 1000000,
+  "team_acceptance": "low",
+  "digital_base": "medium"
+}

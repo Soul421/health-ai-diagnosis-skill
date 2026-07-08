@@ -1,0 +1,16 @@
+{
+  "company_info": {
+    "company_name": "康源大健康产业集团",
+    "revenue": 12000,
+    "employee_count": 320,
+    "store_count": 28,
+    "customer_count": 50000,
+    "it_budget": 100,
+    "it_system_count": 3,
+    "labor_cost_ratio": 0.45,
+    "marketing_team": 6,
+    "avg_age": 38,
+    "it_headcount": 1
+  },
+  "industry_type": "chain_store"
+}
