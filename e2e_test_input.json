@@ -1,0 +1,17 @@
+{
+  "company_name": "康源羊奶",
+  "industry": "保健食品",
+  "product_type": "会销型产品",
+  "sales_model": "会销+私域",
+  "annual_revenue": 5000,
+  "team_size": 50,
+  "content_team_size": 3,
+  "product_price": 398,
+  "target_age": "55岁以上",
+  "core_pain_points": ["肠胃不好", "免疫力下降", "睡眠不好"],
+  "current_short_video": "刚开始做",
+  "current_live": "偶尔播",
+  "private_domain_status": "有一些",
+  "trust_path": 3,
+  "main_bottleneck": ["产品说不清", "内容做不出", "信任建不起"]
+}

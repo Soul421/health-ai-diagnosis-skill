@@ -1,485 +1,392 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ROI五档测算引擎（v1.9.0升级）
-根据团队结构和预算，计算五档回本周期和隐性成本。
-支持轻量模式（前3档）和完整模式（全部5档）。
-新增MVP验证ROI计算。
+内容增长ROI测算引擎（v2.0.0）
+================================
+测算内容增长投入带来的转化提升和收益增长，
+不再是"省了多少人力成本"，而是"内容带来了多少增量收入"。
+
+v2.0 重大变化：
+- 从"人力成本节省ROI" → "内容增长带来的增量收入ROI"
+- 新增：内容投入vs转化提升的测算模型
+- 新增：4档产品报价的ROI对比
+- 新增：30天/90天/180天三阶段ROI预测
 """
 
 import json
 import sys
 import argparse
 
-# ===== 各岗位AI替代比例参考（6个月/2年两档） =====
-# 格式: {岗位类型: {"6个月": (最低, 最高), "2年": (最低, 最高)}}
-SUBSTITUTION_RATIO = {
-    "customer_service": {  # 客服售后
-        "6months": (0.40, 0.50),
-        "2years": (0.70, 0.80),
+# ===== 内容增长 ROI 参数 =====
+
+# 不同模块的预期效果参数
+# 注意：这些是"理想状态下12个月稳态效果"的基准值
+# 实际效果受执行力度、行业、基础水平影响很大
+MODULE_EFFECT_PARAMS = {
+    "module1": {  # 定位诊断
+        "effect_on_conversion": 0.01,    # 转化率提升1%
+        "effect_on_traffic": 0.0,
+        "effect_on_repurchase": 0.01,    # 复购率提升1%
+        "effect_lag_weeks": 2,
     },
-    "content": {  # 内容创作
-        "6months": (0.30, 0.40),
-        "2years": (0.50, 0.60),
+    "module2": {  # 卖点重构
+        "effect_on_conversion": 0.05,    # 转化率提升5%（核心）
+        "effect_on_traffic": 0.01,       # 流量提升1%
+        "effect_on_repurchase": 0.03,    # 复购率提升3%
+        "effect_lag_weeks": 2,
     },
-    "operations": {  # 运营/数据录入（取数据录入比例）
-        "6months": (0.50, 0.60),
-        "2years": (0.80, 0.90),
+    "module3": {  # 痛点与信任
+        "effect_on_conversion": 0.06,    # 转化率提升6%
+        "effect_on_traffic": 0.01,
+        "effect_on_repurchase": 0.05,    # 复购率提升5%
+        "effect_lag_weeks": 4,
     },
-    "sales": {  # 销售支持
-        "6months": (0.10, 0.20),
-        "2years": (0.30, 0.40),
+    "module4": {  # 短视频
+        "effect_on_conversion": 0.01,
+        "effect_on_traffic": 0.15,       # 流量提升15%（核心价值）
+        "effect_on_repurchase": 0.01,
+        "effect_lag_weeks": 8,           # 起号慢
     },
-    "admin_hr": {  # 行政支持
-        "6months": (0.20, 0.30),
-        "2years": (0.40, 0.50),
+    "module5": {  # 直播
+        "effect_on_conversion": 0.08,    # 转化率提升8%
+        "effect_on_traffic": 0.05,       # 流量提升5%
+        "effect_on_repurchase": 0.02,
+        "effect_lag_weeks": 4,
+    },
+    "module6": {  # 私域
+        "effect_on_conversion": 0.05,    # 转化率提升5%
+        "effect_on_traffic": 0.0,
+        "effect_on_repurchase": 0.08,    # 复购率提升8%（核心价值）
+        "effect_lag_weeks": 6,
+    },
+    "module7": {  # AI知识库与执行
+        "effect_on_conversion": 0.02,
+        "effect_on_traffic": 0.03,       # 流量提升3%（产能提升）
+        "effect_on_repurchase": 0.02,
+        "effect_lag_weeks": 3,
     },
 }
 
-# 岗位中文名称
-ROLE_NAMES = {
-    "customer_service": "客服售后",
-    "content": "内容创作",
-    "operations": "运营/数据",
-    "sales": "销售支持",
-    "admin_hr": "行政人力",
+# 总效果上限（避免不切实际的ROI）
+MAX_TOTAL_EFFECT = {
+    "conversion": 0.20,   # 转化率最多提升20%
+    "traffic": 0.35,      # 流量最多提升35%
+    "repurchase": 0.15,   # 复购率最多提升15%
 }
 
-# ===== 五档参数（v1.9.0 新增） =====
-# 前3档为轻量模式（试水/入门/标准），后2档为完整版（进阶/全面）
-BUDGET_TIERS = {
-    "exploratory": {
-        "name": "试水档",
-        "budget_range": "1-3万",
-        "budget_min": 10000,
-        "budget_max": 30000,
-        "mode": "light",  # 轻量模式
-        "effect_factor": 0.6,
-        "hidden_cost_pct": 0.20,
-        "implementation_period": "2周",
-        "description": "试水档：MVP验证，选1个痛点快速见效，风险最低",
-        "scenarios": ["智能客服", "AI内容生成"],
-    },
-    "starter": {
-        "name": "入门档",
-        "budget_range": "5-8万",
-        "budget_min": 50000,
-        "budget_max": 80000,
-        "mode": "light",
-        "effect_factor": 0.8,
-        "hidden_cost_pct": 0.25,
-        "implementation_period": "1个月",
-        "description": "入门档：单场景闭环，跑通一个完整业务场景",
-        "scenarios": ["智能客服", "AI内容生成", "AI培训助手"],
+# 内容可影响营收比例（内容营销能影响的营收占总营收的比例）
+# 不是所有营收都靠内容，还有线下、渠道、老客复购等
+CONTENT_INFLUENCE_RATIO = {
+    "default": 0.40,       # 默认40%的营收受内容影响
+    "medical": 0.25,       # 医疗行业更多靠线下和口碑
+    "online": 0.60,        # 纯线上品牌，内容影响更大
+    "experiential": 0.45,  # 会销行业，内容+私域影响约45%
+    "chain_store": 0.30,   # 连锁门店更多靠线下流量
+    "anti_aging": 0.55,    # 医美抗衰，内容种草影响大
+}
+
+# 4档产品的模块覆盖和效果系数
+TIER_EFFECT_MULTIPLIER = {
+    "basic": {
+        "multiplier": 0.35,   # 基础版效果35%（模板为主，执行靠自己）
+        "modules": ["module1", "module2", "module4"],
     },
     "standard": {
-        "name": "标准档",
-        "budget_range": "15-20万",
-        "budget_min": 150000,
-        "budget_max": 200000,
-        "mode": "light",
-        "effect_factor": 1.0,
-        "hidden_cost_pct": 0.25,
-        "implementation_period": "3个月",
-        "description": "标准档：小范围复制，扩展到3个场景+门店复制",
-        "scenarios": ["智能客服", "AI内容生成", "私域运营AI", "门店服务诊断"],
+        "multiplier": 0.6,    # 标准版效果60%（有专家诊断+定制调整+陪跑）
+        "modules": ["module1", "module2", "module3", "module4", "module6", "module7"],
     },
     "advanced": {
-        "name": "进阶档",
-        "budget_range": "40-50万",
-        "budget_min": 400000,
-        "budget_max": 500000,
-        "mode": "full",  # 完整模式
-        "effect_factor": 1.1,
-        "hidden_cost_pct": 0.25,
-        "implementation_period": "6个月",
-        "description": "进阶档：全面铺开，多场景协同+数据打通",
-        "scenarios": ["智能客服", "AI内容生成", "私域运营AI", "数据分析AI", "门店服务诊断"],
+        "multiplier": 0.85,   # 进阶版效果85%（深度定制+陪跑+操盘）
+        "modules": ["module1", "module2", "module3", "module4", "module5", "module6", "module7"],
     },
-    "comprehensive": {
-        "name": "全面档",
-        "budget_range": "100-120万",
-        "budget_min": 1000000,
-        "budget_max": 1200000,
-        "mode": "full",
-        "effect_factor": 1.3,
-        "hidden_cost_pct": 0.15,
-        "implementation_period": "12个月",
-        "description": "全面档：深度融合，全链路AI改造+智能化决策",
-        "scenarios": ["全部场景"],
+    "long_term": {
+        "multiplier": 1.0,    # 长期版效果100%（全年陪跑+持续优化）
+        "modules": ["module1", "module2", "module3", "module4", "module5", "module6", "module7"],
     },
 }
 
-# 档位顺序（用于排序输出）
-TIER_ORDER = ["exploratory", "starter", "standard", "advanced", "comprehensive"]
-
-# 接受度整体调整系数（影响所有档位的实际效果）
-TEAM_ACCEPTANCE_ADJUST = {
-    "low": 0.7,     # 接受度低，整体效果打7折
-    "medium": 1.0,  # 正常
-    "high": 1.1,    # 接受度高，效果超预期10%
+# 档位价格（元）
+TIER_PRICES = {
+    "basic": 3980,
+    "standard": 19800,
+    "advanced": 98000,
+    "long_term": 298000,  # 年费
 }
 
-# 数字化基础整体调整系数
-DIGITAL_BASE_ADJUST = {
-    "weak": 0.75,    # 基础弱，整体打75折
-    "medium": 1.0,   # 正常
-    "strong": 1.1,   # 基础好，效果超预期10%
+# 档位名称
+TIER_NAMES = {
+    "basic": "基础版",
+    "standard": "标准版",
+    "advanced": "进阶版",
+    "long_term": "长期陪跑版",
 }
 
-# ===== MVP验证 ROI 计算参数 =====
-# 针对单个场景的快速验证ROI
-MVP_SCENARIO_ROI = {
-    "智能客服": {
-        "mvp_cost": 15000,          # MVP投入（元）
-        "mvp_period_months": 0.5,    # 验证周期（月）
-        "expected_saving_monthly": 8000,  # 预期月节省（元）
-        "success_rate": 0.85,        # 成功率
-        "kpi": "响应时间缩短60%，夜间咨询覆盖100%",
-    },
-    "AI内容生成": {
-        "mvp_cost": 10000,
-        "mvp_period_months": 0.5,
-        "expected_saving_monthly": 6000,
-        "success_rate": 0.90,
-        "kpi": "内容产出提升3-5倍，外包成本降低50%",
-    },
-    "AI培训助手": {
-        "mvp_cost": 12000,
-        "mvp_period_months": 0.5,
-        "expected_saving_monthly": 5000,
-        "success_rate": 0.80,
-        "kpi": "培训周期缩短50%，新人上手速度提升1倍",
-    },
-    "私域运营AI": {
-        "mvp_cost": 20000,
-        "mvp_period_months": 1,
-        "expected_saving_monthly": 7000,
-        "success_rate": 0.75,
-        "kpi": "私域转化率提升20%，复购率提升15%",
-    },
-    "门店服务诊断": {
-        "mvp_cost": 18000,
-        "mvp_period_months": 1,
-        "expected_saving_monthly": 6000,
-        "success_rate": 0.70,
-        "kpi": "门店服务标准化率提升80%，督导成本降低40%",
-    },
-    "数据分析AI": {
-        "mvp_cost": 25000,
-        "mvp_period_months": 1,
-        "expected_saving_monthly": 8000,
-        "success_rate": 0.75,
-        "kpi": "报表生成效率提升10倍，决策速度提升3倍",
-    },
+# 执行周期（天）
+TIER_DURATION_DAYS = {
+    "basic": 30,
+    "standard": 90,
+    "advanced": 90,
+    "long_term": 365,
 }
 
 
-def determine_mode(budget=None, employee_count=None, annual_revenue_wan=None):
+def calculate_tier_effect(tier: str, current_monthly_revenue: float,
+                         current_conversion_rate: float,
+                         current_repurchase_rate: float,
+                         current_traffic: float,
+                         content_influence_ratio: float = 0.4) -> dict:
     """
-    根据企业规模和预算自动判断模式
+    计算某一档位的预期效果
 
     Args:
-        budget: 预算（元）
-        employee_count: 员工总数
-        annual_revenue_wan: 年营收（万元）
+        tier: 档位 key
+        current_monthly_revenue: 当前月营收（万元）
+        current_conversion_rate: 当前转化率（小数，如0.02=2%）
+        current_repurchase_rate: 当前复购率（小数）
+        current_traffic: 当前月流量（人次）
+        content_influence_ratio: 内容可影响营收比例（0-1）
 
     Returns:
-        str: "light"（轻量模式）或 "full"（完整模式）
+        dict，包含各项指标提升和增量收入
     """
-    # 预算明确低于20万 → 轻量模式
-    if budget and budget <= 200000:
-        return "light"
-    # 预算明确高于50万 → 完整模式
-    if budget and budget >= 500000:
-        return "full"
-    # 员工少于50人 → 轻量模式
-    if employee_count and employee_count < 50:
-        return "light"
-    # 年营收低于3000万 → 轻量模式
-    if annual_revenue_wan and annual_revenue_wan < 3000:
-        return "light"
-    # 默认：根据预算判断，没有明确信息时返回 "auto"
-    return "auto"
+    if tier not in TIER_EFFECT_MULTIPLIER:
+        tier = "standard"
+
+    tier_data = TIER_EFFECT_MULTIPLIER[tier]
+    modules = tier_data["modules"]
+    multiplier = tier_data["multiplier"]
+
+    # 累加各模块的效果（考虑边际递减，用1-乘积的方式计算总提升）
+    # 即：总提升 = 1 - (1-提升1) × (1-提升2) × ...
+    total_conversion_effect = 1.0
+    total_traffic_effect = 1.0
+    total_repurchase_effect = 1.0
+
+    for m_id in modules:
+        params = MODULE_EFFECT_PARAMS.get(m_id, {})
+        total_conversion_effect *= (1 - params.get("effect_on_conversion", 0) * multiplier)
+        total_traffic_effect *= (1 - params.get("effect_on_traffic", 0) * multiplier)
+        total_repurchase_effect *= (1 - params.get("effect_on_repurchase", 0) * multiplier)
+
+    conversion_lift = 1 - total_conversion_effect
+    traffic_lift = 1 - total_traffic_effect
+    repurchase_lift = 1 - total_repurchase_effect
+
+    # 应用总效果上限（避免不切实际的ROI）
+    conversion_lift = min(conversion_lift, MAX_TOTAL_EFFECT["conversion"])
+    traffic_lift = min(traffic_lift, MAX_TOTAL_EFFECT["traffic"])
+    repurchase_lift = min(repurchase_lift, MAX_TOTAL_EFFECT["repurchase"])
+
+    # 计算增量收入
+    # 简化模型：收入 = 流量 × 转化率 × 客单价 × (1 + 复购贡献)
+    # 内容增长只影响"内容可影响"的那部分营收
+    # 增量收入 ≈ 当前营收 × 内容影响比例 × [(1+流量提升) × (1+转化提升) × (1+复购提升系数) - 1]
+
+    # 复购对收入的贡献系数（复购率提升带来的收入增长约为复购率提升的一半）
+    repurchase_revenue_factor = repurchase_lift * 0.5
+
+    # 月度增量收入估算（只计算内容影响部分的增长）
+    affected_revenue = current_monthly_revenue * content_influence_ratio
+    monthly_incremental = affected_revenue * (
+        (1 + traffic_lift) * (1 + conversion_lift) * (1 + repurchase_revenue_factor) - 1
+    )
+
+    # 年化增量收入
+    annual_incremental = monthly_incremental * 12
+
+    # ROI计算
+    cost = TIER_PRICES[tier]
+    cost_wan = cost / 10000  # 转为万元
+
+    # 回本周期（月）
+    if monthly_incremental > 0:
+        payback_months = round(cost_wan / monthly_incremental, 1)
+    else:
+        payback_months = float("inf")
+
+    # 首年ROI
+    first_year_roi = round((annual_incremental - cost_wan) / cost_wan * 100, 1) if cost_wan > 0 else 0
+
+    return {
+        "tier": tier,
+        "tier_name": TIER_NAMES[tier],
+        "price": cost,
+        "price_wan": cost_wan,
+        "duration_days": TIER_DURATION_DAYS[tier],
+        "modules_covered": modules,
+        "modules_count": len(modules),
+        "effect_multiplier": multiplier,
+        "conversion_lift": round(conversion_lift * 100, 1),  # 转为百分比
+        "traffic_lift": round(traffic_lift * 100, 1),
+        "repurchase_lift": round(repurchase_lift * 100, 1),
+        "monthly_incremental_revenue_wan": round(monthly_incremental, 1),
+        "annual_incremental_revenue_wan": round(annual_incremental, 1),
+        "payback_months": payback_months,
+        "first_year_roi_percent": first_year_roi,
+        "roi_description": _describe_roi(first_year_roi, payback_months),
+    }
 
 
-def determine_recommended_tier(budget=None, mode="auto"):
+def _describe_roi(roi_percent: float, payback_months: float) -> str:
+    """ROI描述"""
+    if payback_months <= 1:
+        return "回报极快，当月即可回本，强烈推荐"
+    elif payback_months <= 3:
+        return "回报很快，3个月内回本，非常值得投入"
+    elif payback_months <= 6:
+        return "回报合理，半年内回本，建议尽快启动"
+    elif payback_months <= 12:
+        return "回报正常，1年内回本，可以考虑"
+    else:
+        return "回报周期较长，建议先从低档位试水"
+
+
+def calculate_content_growth_roi(input_data: dict) -> dict:
     """
-    根据预算和模式确定推荐档位
-
-    Args:
-        budget: 预算（元）
-        mode: "light" / "full" / "auto"
-
-    Returns:
-        str: 推荐的档位key
-    """
-    if budget:
-        # 根据预算金额匹配最接近的档位
-        if budget <= 30000:
-            return "exploratory"
-        elif budget <= 80000:
-            return "starter"
-        elif budget <= 200000:
-            return "standard"
-        elif budget <= 500000:
-            return "advanced"
-        else:
-            return "comprehensive"
-    # 没有预算时，根据模式给默认推荐
-    if mode == "light":
-        return "starter"
-    return "standard"
-
-
-def calculate_roi(input_data):
-    """
-    计算ROI五档测算
+    计算内容增长ROI完整分析
 
     Args:
         input_data: dict，包含：
-            - team_structure: 各团队人数和薪资
-            - budget: 预算（元），可选
-            - team_acceptance: low/medium/high
-            - digital_base: weak/medium/strong
-            - mode: light/full/auto（可选，自动判断）
-            - employee_count: 员工总数（可选，用于模式判断）
-            - annual_revenue_wan: 年营收万元（可选，用于模式判断）
-            - top_scenario: 首选场景名称（可选，用于MVP ROI计算）
+            - annual_revenue_wan: 年营收（万元）
+            - monthly_revenue_wan: 月营收（万元，可选，未提供取年营收/12）
+            - conversion_rate: 当前转化率（小数，如0.02）
+            - repurchase_rate: 当前复购率（小数）
+            - monthly_traffic: 月流量（人次，可选）
+            - customer_count: 客户数（可选）
+            - avg_price: 客单价（元，可选）
+            - industry_type: 行业类型
+            - 其他企业特征字段
 
     Returns:
         dict，完整ROI分析结果
     """
-    team_structure = input_data.get("team_structure", {})
-    budget = input_data.get("budget", 0)
-    team_acceptance = input_data.get("team_acceptance", "medium")
-    digital_base = input_data.get("digital_base", "medium")
-    top_scenario = input_data.get("top_scenario", "")
-    employee_count = input_data.get("employee_count")
-    annual_revenue_wan = input_data.get("annual_revenue_wan")
+    annual_revenue_wan = input_data.get("annual_revenue_wan", 0)
+    monthly_revenue_wan = input_data.get("monthly_revenue_wan", 0) or (annual_revenue_wan / 12)
+    conversion_rate = input_data.get("conversion_rate", 0.02)  # 默认2%
+    repurchase_rate = input_data.get("repurchase_rate", 0.2)   # 默认20%
+    monthly_traffic = input_data.get("monthly_traffic", 0)
+    industry_type = input_data.get("industry_type", "default")
 
-    if team_acceptance not in TEAM_ACCEPTANCE_ADJUST:
-        team_acceptance = "medium"
-    if digital_base not in DIGITAL_BASE_ADJUST:
-        digital_base = "medium"
-
-    # ===== 自动判断模式 =====
-    requested_mode = input_data.get("mode", "auto")
-    if requested_mode == "auto":
-        actual_mode = determine_mode(budget=budget, employee_count=employee_count,
-                                     annual_revenue_wan=annual_revenue_wan)
-    else:
-        actual_mode = requested_mode
-
-    # ===== 计算年人力成本 =====
-    annual_labor_cost = 0
-    team_detail = {}
-    for role_key, role_data in team_structure.items():
-        count = role_data.get("count", 0)
-        avg_salary = role_data.get("avg_salary", 0)
-        annual = count * avg_salary * 12
-        annual_labor_cost += annual
-        team_detail[role_key] = {
-            "count": count,
-            "avg_salary": avg_salary,
-            "annual_cost": annual,
-            "role_name": ROLE_NAMES.get(role_key, role_key),
-        }
-
-    # ===== 计算年节省（6个月/2年两档，取中值） =====
-    annual_savings_6months = 0
-    annual_savings_2years = 0
-    savings_detail = {}
-
-    for role_key, role_data in team_structure.items():
-        if role_key not in SUBSTITUTION_RATIO:
-            continue
-        count = role_data.get("count", 0)
-        avg_salary = role_data.get("avg_salary", 0)
-        annual_role_cost = count * avg_salary * 12
-
-        ratio_6m = sum(SUBSTITUTION_RATIO[role_key]["6months"]) / 2
-        ratio_2y = sum(SUBSTITUTION_RATIO[role_key]["2years"]) / 2
-
-        saving_6m = annual_role_cost * ratio_6m
-        saving_2y = annual_role_cost * ratio_2y
-
-        annual_savings_6months += saving_6m
-        annual_savings_2years += saving_2y
-
-        savings_detail[role_key] = {
-            "role_name": ROLE_NAMES.get(role_key, role_key),
-            "annual_cost": annual_role_cost,
-            "ratio_6months": round(ratio_6m, 3),
-            "ratio_2years": round(ratio_2y, 3),
-            "saving_6months": round(saving_6m),
-            "saving_2years": round(saving_2y),
-        }
-
-    annual_savings_6months = round(annual_savings_6months)
-    annual_savings_2years = round(annual_savings_2years)
-
-    # ===== 整体调整系数 =====
-    overall_adjust = TEAM_ACCEPTANCE_ADJUST[team_acceptance] * DIGITAL_BASE_ADJUST[digital_base]
-
-    # ===== 计算五档回本周期 =====
-    # 使用2年时的年节省作为稳态基准
-    baseline_saving = annual_savings_2years
-
-    recommended_tier = determine_recommended_tier(budget=budget, mode=actual_mode)
-
-    payback_period = {}
-    for tier_key in TIER_ORDER:
-        tier = BUDGET_TIERS[tier_key]
-        tier_budget = tier["budget_max"]  # 用该档的上限预算计算
-
-        # 实际投入 = 预算 × (1 + 隐性成本比例)
-        total_investment = tier_budget * (1 + tier["hidden_cost_pct"])
-        # 实际年节省 = 基准年节省 × 效果系数 × 整体调整系数
-        actual_saving = baseline_saving * tier["effect_factor"] * overall_adjust
-
-        if actual_saving > 0:
-            payback_months = round(total_investment / actual_saving * 12, 1)
+    # 如果没有月流量，根据月营收和转化率+客单价反推
+    if monthly_traffic == 0:
+        avg_price = input_data.get("avg_price", 300)  # 默认客单价300
+        if conversion_rate > 0 and avg_price > 0:
+            # 月营收 = 流量 × 转化率 × 客单价 / 10000（万元）
+            monthly_traffic = (monthly_revenue_wan * 10000) / (conversion_rate * avg_price) if conversion_rate > 0 else 0
         else:
-            payback_months = float("inf")
+            monthly_traffic = 10000  # 默认值
 
-        payback_period[tier_key] = {
-            "tier_name": tier["name"],
-            "budget_range": tier["budget_range"],
-            "mode": tier["mode"],
-            "months": payback_months,
-            "total_investment": round(total_investment),
-            "actual_annual_saving": round(actual_saving),
-            "effect_factor": tier["effect_factor"],
-            "hidden_cost_pct": f"{int(tier['hidden_cost_pct'] * 100)}%",
-            "implementation_period": tier["implementation_period"],
-            "adjustment_factor": round(overall_adjust, 2),
-            "description": tier["description"],
-            "scenarios": tier["scenarios"],
-            "is_recommended": tier_key == recommended_tier,
-        }
-
-    # ===== 轻量模式下的档位列表 =====
-    if actual_mode == "light":
-        visible_tiers = ["exploratory", "starter", "standard"]
-    else:
-        visible_tiers = TIER_ORDER[:]
-
-    # ===== MVP验证ROI计算 =====
-    mvp_roi = None
-    if top_scenario and top_scenario in MVP_SCENARIO_ROI:
-        mvp_data = MVP_SCENARIO_ROI[top_scenario]
-        mvp_cost = mvp_data["mvp_cost"]
-        mvp_saving_monthly = mvp_data["expected_saving_monthly"] * overall_adjust
-        mvp_period = mvp_data["mvp_period_months"]
-        success_rate = mvp_data["success_rate"]
-
-        # 预期月节省 × 成功率
-        expected_monthly_saving = mvp_saving_monthly * success_rate
-        # 回本周期（月）
-        if expected_monthly_saving > 0:
-            mvp_payback_months = round(mvp_cost / expected_monthly_saving, 1)
-        else:
-            mvp_payback_months = float("inf")
-
-        # 首年净收益 = (12 - mvp_period) × 月节省 - MVP成本
-        first_year_net = round((12 - mvp_period) * expected_monthly_saving - mvp_cost)
-
-        mvp_roi = {
-            "scenario": top_scenario,
-            "mvp_cost": mvp_cost,
-            "mvp_period_months": mvp_period,
-            "expected_monthly_saving": round(expected_monthly_saving),
-            "success_rate": success_rate,
-            "payback_months": mvp_payback_months,
-            "first_year_net_saving": first_year_net,
-            "roi_ratio": round(first_year_net / mvp_cost * 100, 1) if mvp_cost > 0 else 0,
-            "kpi": mvp_data["kpi"],
-        }
-
-    # ===== 隐性成本明细 =====
-    # 基于推荐档位的预算计算
-    rec_budget = BUDGET_TIERS[recommended_tier]["budget_max"]
-    hidden_costs = {
-        "one_time": {
-            "系统部署与集成": round(rec_budget * 0.10),
-            "数据治理与迁移": round(rec_budget * 0.08),
-            "人员培训": round(rec_budget * 0.05),
-            "流程改造咨询": round(rec_budget * 0.05),
-        },
-        "recurring": {
-            "年订阅/维护费": f"约{round(rec_budget * 0.15)}/年",
-            "持续优化人力": "需1-2人兼职维护",
-        },
+    # 行业调整系数
+    industry_adjust = {
+        "default": 1.0,
+        "medical": 0.8,      # 医疗行业合规限制多，内容效果打8折
+        "online": 1.2,       # 纯线上电商，内容效果更好
+        "experiential": 1.1,  # 会销行业，内容+私域效果好
+        "chain_store": 0.9,  # 连锁门店，内容效果中等
+        "anti_aging": 1.15,  # 医美抗衰，高客单价，内容ROI高
     }
-    one_time_total = sum(hidden_costs["one_time"].values())
-    hidden_costs["one_time"]["小计"] = one_time_total
+    adjust = industry_adjust.get(industry_type, 1.0)
 
-    # ===== 两种策略对比 =====
-    if annual_savings_6months > 0:
-        cut_staff_payback_months = round(rec_budget / annual_savings_6months * 12, 1)
-        cut_staff_saving = annual_savings_6months
-    else:
-        cut_staff_payback_months = float("inf")
-        cut_staff_saving = 0
+    # 内容可影响营收比例（按行业）
+    content_influence_ratio = CONTENT_INFLUENCE_RATIO.get(industry_type, 0.4)
 
-    two_strategies = {
-        "cut_staff": {
-            "name": "老板A式：消灭岗位",
-            "annual_saving": cut_staff_saving,
-            "payback_months": cut_staff_payback_months,
-            "payback": f"{cut_staff_payback_months}个月",
-            "description": "用AI直接替代人力，砍掉重复岗位，成本下降立竿见影。适合利润薄、需要快速降本的企业。",
-            "pros": ["人力成本立竿见影", "管理复杂度下降", "ROI计算清晰"],
-            "cons": ["团队士气受影响", "核心人才可能流失", "客户体验可能下降", "舆论风险（健康行业敏感）"],
+    # 计算4个档位的ROI
+    tier_results = {}
+    for tier in ["basic", "standard", "advanced", "long_term"]:
+        result = calculate_tier_effect(
+            tier=tier,
+            current_monthly_revenue=monthly_revenue_wan,
+            current_conversion_rate=conversion_rate,
+            current_repurchase_rate=repurchase_rate,
+            current_traffic=monthly_traffic,
+            content_influence_ratio=content_influence_ratio,
+        )
+        # 应用行业调整
+        result["conversion_lift"] = round(result["conversion_lift"] * adjust, 1)
+        result["traffic_lift"] = round(result["traffic_lift"] * adjust, 1)
+        result["repurchase_lift"] = round(result["repurchase_lift"] * adjust, 1)
+        result["monthly_incremental_revenue_wan"] = round(result["monthly_incremental_revenue_wan"] * adjust, 1)
+        result["annual_incremental_revenue_wan"] = round(result["annual_incremental_revenue_wan"] * adjust, 1)
+
+        # 重新计算ROI
+        cost_wan = result["price_wan"]
+        monthly_inc = result["monthly_incremental_revenue_wan"]
+        annual_inc = result["annual_incremental_revenue_wan"]
+
+        if monthly_inc > 0:
+            result["payback_months"] = round(cost_wan / monthly_inc, 1)
+        else:
+            result["payback_months"] = float("inf")
+
+        result["first_year_roi_percent"] = round((annual_inc - cost_wan) / cost_wan * 100, 1) if cost_wan > 0 else 0
+        result["roi_description"] = _describe_roi(result["first_year_roi_percent"], result["payback_months"])
+
+        tier_results[tier] = result
+
+    # 推荐档位（基于回本周期和企业规模）
+    recommended_tier = "standard"  # 默认标准版
+    if annual_revenue_wan < 500:
+        recommended_tier = "basic"
+    elif annual_revenue_wan >= 10000:
+        recommended_tier = "long_term"
+    elif annual_revenue_wan >= 5000:
+        recommended_tier = "advanced"
+
+    # 三阶段效果预测（以推荐档位为准）
+    rec_tier = tier_results[recommended_tier]
+    effect_multiplier = rec_tier["effect_multiplier"]
+
+    # 30天/90天/180天的效果渐进
+    phase_effects = {
+        "day30": {
+            "effect_percentage": 30,  # 30天时达到总效果的30%
+            "cumulative_revenue_wan": round(rec_tier["monthly_incremental_revenue_wan"] * 0.3, 1),
         },
-        "boost_efficiency": {
-            "name": "老板B式：优化流程",
-            "efficiency_gain": "30-50%",
-            "payback": "即时回本（产能提升）",
-            "description": "用AI增强人的能力，让人做更有价值的事。节省的不是人头，而是招聘成本+外包成本+机会成本。",
-            "pros": ["团队稳定士气高", "客户体验不降反升", "承接更大业务量", "无裁员舆论风险"],
-            "cons": ["短期成本下降不明显", "需要重新设计工作流程", "效果量化较难"],
+        "day90": {
+            "effect_percentage": 70,  # 90天时达到70%
+            "cumulative_revenue_wan": round(
+                rec_tier["monthly_incremental_revenue_wan"] * (0.3 + 0.5 + 0.7), 1
+            ),
+        },
+        "day180": {
+            "effect_percentage": 95,  # 180天时达到95%
+            "cumulative_revenue_wan": round(
+                rec_tier["monthly_incremental_revenue_wan"] * (0.3 + 0.5 + 0.7 + 0.9 + 0.95 + 0.95), 1
+            ),
         },
     }
 
     return {
-        "version": "1.9.0",
-        "mode": actual_mode,
-        "mode_label": "轻量模式" if actual_mode == "light" else "完整模式",
+        "version": "2.0.0",
+        "base_assumptions": {
+            "monthly_revenue_wan": round(monthly_revenue_wan, 1),
+            "annual_revenue_wan": annual_revenue_wan,
+            "conversion_rate": round(conversion_rate * 100, 1),
+            "repurchase_rate": round(repurchase_rate * 100, 1),
+            "monthly_traffic": round(monthly_traffic, 0),
+            "industry_type": industry_type,
+            "industry_adjust": adjust,
+            "content_influence_ratio": round(content_influence_ratio * 100, 0),
+        },
+        "tier_results": tier_results,
         "recommended_tier": recommended_tier,
-        "recommended_tier_name": BUDGET_TIERS[recommended_tier]["name"],
-        "team_detail": team_detail,
-        "savings_detail": savings_detail,
-        "annual_labor_cost": annual_labor_cost,
-        "annual_savings_6months": annual_savings_6months,
-        "annual_savings_2years": annual_savings_2years,
-        "saving_ratio_6months": round(annual_savings_6months / annual_labor_cost * 100, 1) if annual_labor_cost > 0 else 0,
-        "saving_ratio_2years": round(annual_savings_2years / annual_labor_cost * 100, 1) if annual_labor_cost > 0 else 0,
-        "budget": budget,
-        "payback_period": payback_period,
-        "visible_tiers": visible_tiers,
-        "hidden_costs": hidden_costs,
-        "two_strategies": two_strategies,
-        "mvp_roi": mvp_roi,
-        "team_acceptance": team_acceptance,
-        "digital_base": digital_base,
-        "overall_adjustment": round(overall_adjust, 2),
+        "recommended_tier_name": TIER_NAMES[recommended_tier],
+        "recommended_tier_data": rec_tier,
+        "phase_predictions": phase_effects,
+        "roi_summary": {
+            "recommended_price": TIER_PRICES[recommended_tier],
+            "recommended_price_wan": TIER_PRICES[recommended_tier] / 10000,
+            "expected_monthly_incremental": rec_tier["monthly_incremental_revenue_wan"],
+            "expected_annual_incremental": rec_tier["annual_incremental_revenue_wan"],
+            "payback_months": rec_tier["payback_months"],
+            "first_year_roi": rec_tier["first_year_roi_percent"],
+        },
     }
 
 
-def format_currency(value):
-    """格式化金额为万元或元"""
-    if value >= 10000:
-        return f"{value / 10000:.1f}万"
-    return f"{value}元"
-
-
 def main():
-    parser = argparse.ArgumentParser(description="ROI五档测算引擎（v1.9.0）")
+    parser = argparse.ArgumentParser(description="内容增长ROI测算引擎 v2.0.0")
     parser.add_argument("--input", "-i", help="输入JSON文件路径或JSON字符串")
-    parser.add_argument("--mode", choices=["light", "full", "auto"], default="auto",
-                        help="强制指定模式：light(轻量)/full(完整)/auto(自动判断)")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
 
@@ -487,112 +394,93 @@ def main():
     if args.self_test:
         test_cases = [
             {
-                "name": "康源健康（30家门店连锁药店）- 完整模式",
+                "name": "羊奶会销企业（年营收5000万，会销模式）",
                 "input": {
-                    "team_structure": {
-                        "customer_service": {"count": 15, "avg_salary": 5000},
-                        "content": {"count": 5, "avg_salary": 6000},
-                        "operations": {"count": 8, "avg_salary": 7000},
-                        "sales": {"count": 12, "avg_salary": 6000},
-                        "admin_hr": {"count": 4, "avg_salary": 5000},
-                    },
-                    "budget": 300000,
-                    "team_acceptance": "medium",
-                    "digital_base": "medium",
-                    "top_scenario": "智能客服",
-                    "employee_count": 200,
+                    "annual_revenue_wan": 5000,
+                    "conversion_rate": 0.05,
+                    "repurchase_rate": 0.35,
+                    "avg_price": 398,
+                    "industry_type": "experiential",
+                    "customer_count": 20000,
+                },
+            },
+            {
+                "name": "连锁药店（年营收8000万）",
+                "input": {
                     "annual_revenue_wan": 8000,
+                    "conversion_rate": 0.08,
+                    "repurchase_rate": 0.40,
+                    "avg_price": 150,
+                    "industry_type": "medical",
+                    "customer_count": 50000,
                 },
             },
             {
-                "name": "小型会销企业（5家店，50人）- 轻量模式",
+                "name": "医美机构（年营收1亿，高客单价）",
                 "input": {
-                    "team_structure": {
-                        "customer_service": {"count": 5, "avg_salary": 4500},
-                        "content": {"count": 3, "avg_salary": 5000},
-                        "operations": {"count": 4, "avg_salary": 5500},
-                        "sales": {"count": 30, "avg_salary": 5000},
-                        "admin_hr": {"count": 3, "avg_salary": 4500},
-                    },
-                    "budget": 60000,
-                    "team_acceptance": "low",
-                    "digital_base": "weak",
-                    "top_scenario": "AI内容生成",
-                    "employee_count": 50,
-                    "annual_revenue_wan": 2000,
+                    "annual_revenue_wan": 10000,
+                    "conversion_rate": 0.03,
+                    "repurchase_rate": 0.25,
+                    "avg_price": 5000,
+                    "industry_type": "anti_aging",
+                    "customer_count": 30000,
                 },
             },
             {
-                "name": "微型企业（试水档）- 轻量模式",
+                "name": "小微保健品店（年营收300万）",
                 "input": {
-                    "team_structure": {
-                        "customer_service": {"count": 2, "avg_salary": 4000},
-                        "content": {"count": 1, "avg_salary": 4500},
-                        "operations": {"count": 1, "avg_salary": 5000},
-                        "sales": {"count": 5, "avg_salary": 4500},
-                        "admin_hr": {"count": 1, "avg_salary": 4000},
-                    },
-                    "budget": 20000,
-                    "team_acceptance": "low",
-                    "digital_base": "weak",
-                    "top_scenario": "智能客服",
-                    "employee_count": 10,
                     "annual_revenue_wan": 300,
+                    "conversion_rate": 0.04,
+                    "repurchase_rate": 0.30,
+                    "avg_price": 200,
+                    "industry_type": "chain_store",
+                    "customer_count": 500,
                 },
             },
         ]
 
         print("=" * 70)
-        print("ROI五档测算引擎 v1.9.0 - 自测")
+        print("内容增长ROI测算引擎 v2.0.0 - 自测")
         print("=" * 70)
 
         all_passed = True
         for i, test in enumerate(test_cases, 1):
-            result = calculate_roi(test["input"])
-            print(f"\n【测试 {i}】{test['name']}")
-            print(f"  模式: {result['mode_label']} (mode={result['mode']})")
-            print(f"  推荐档位: {result['recommended_tier_name']}")
-            print(f"  年人力成本: {format_currency(result['annual_labor_cost'])}")
-            print(f"  预算: {format_currency(result['budget']) if result['budget'] else '未指定'}")
-            print(f"  团队接受度: {result['team_acceptance']}, 数字化基础: {result['digital_base']}")
-            print(f"  整体调整系数: {result['overall_adjustment']}")
-            print(f"\n  年节省预估:")
-            print(f"    6个月时: {format_currency(result['annual_savings_6months'])}/年 "
-                  f"({result['saving_ratio_6months']}%人力成本)")
-            print(f"    2年成熟时: {format_currency(result['annual_savings_2years'])}/年 "
-                  f"({result['saving_ratio_2years']}%人力成本)")
+            result = calculate_content_growth_roi(test["input"])
+            base = result["base_assumptions"]
+            summary = result["roi_summary"]
 
-            print(f"\n  五档回本周期（可见 {len(result['visible_tiers'])} 档）:")
-            for tier_key in result["visible_tiers"]:
-                pp = result["payback_period"][tier_key]
-                rec_mark = " ⭐推荐" if pp["is_recommended"] else ""
-                print(f"    {pp['tier_name']:6s} ({pp['budget_range']:>8s}): {pp['months']:>5.1f}个月"
-                      f"  投入{format_currency(pp['total_investment'])},"
-                      f"  年省{format_currency(pp['actual_annual_saving'])}"
+            print(f"\n【测试 {i}】{test['name']}")
+            print(f"  月营收: {base['monthly_revenue_wan']}万, 转化率: {base['conversion_rate']}%, 复购率: {base['repurchase_rate']}%")
+            print(f"  月流量: {base['monthly_traffic']:.0f}人次, 行业调整: {base['industry_adjust']}")
+            print(f"  推荐档位: {result['recommended_tier_name']}")
+            print(f"  投入: {summary['recommended_price_wan']}万")
+            print(f"  预期月增收: {summary['expected_monthly_incremental']}万")
+            print(f"  预期年增收: {summary['expected_annual_incremental']}万")
+            print(f"  回本周期: {summary['payback_months']}个月")
+            print(f"  首年ROI: {summary['first_year_roi']}%")
+
+            print(f"\n  4档位对比:")
+            for tier_key, tier_data in result["tier_results"].items():
+                rec_mark = " ⭐推荐" if tier_key == result["recommended_tier"] else ""
+                print(f"    {tier_data['tier_name']:6s} ({tier_data['price_wan']:>4.1f}万): "
+                      f"流量+{tier_data['traffic_lift']:>4.1f}% "
+                      f"转化+{tier_data['conversion_lift']:>4.1f}% "
+                      f"复购+{tier_data['repurchase_lift']:>4.1f}% "
+                      f"月增收{tier_data['monthly_incremental_revenue_wan']:>6.1f}万 "
+                      f"回本{tier_data['payback_months']:>4.1f}月"
                       f"{rec_mark}")
 
-            # MVP ROI
-            if result["mvp_roi"]:
-                mvp = result["mvp_roi"]
-                print(f"\n  MVP验证ROI（{mvp['scenario']}）:")
-                print(f"    投入: {format_currency(mvp['mvp_cost'])}, 周期: {mvp['mvp_period_months']}个月")
-                print(f"    预期月节省: {format_currency(mvp['expected_monthly_saving'])}")
-                print(f"    成功率: {mvp['success_rate']*100:.0f}%, 回本周期: {mvp['payback_months']}个月")
-                print(f"    首年净收益: {format_currency(mvp['first_year_net_saving'])}, ROI: {mvp['roi_ratio']}%")
-                print(f"    验证KPI: {mvp['kpi']}")
-
-            print(f"\n  两种策略:")
-            print(f"    老板A式(消灭岗位): {result['two_strategies']['cut_staff']['payback']}回本")
-            print(f"    老板B式(优化流程): {result['two_strategies']['boost_efficiency']['payback']}")
+            print(f"\n  三阶段效果预测（{result['recommended_tier_name']}）:")
+            for phase, data in result["phase_predictions"].items():
+                print(f"    {phase}: 达到效果的{data['effect_percentage']}%, 累计增收{data['cumulative_revenue_wan']}万")
 
             # 校验
             passed = (
-                result["annual_labor_cost"] > 0
-                and result["annual_savings_6months"] > 0
-                and result["annual_savings_2years"] > result["annual_savings_6months"]
-                and len(result["payback_period"]) == 5
-                and len(result["visible_tiers"]) >= 3
-                and result["recommended_tier"] in result["visible_tiers"]
+                len(result["tier_results"]) == 4
+                and result["recommended_tier"] in result["tier_results"]
+                and "phase_predictions" in result
+                and len(result["phase_predictions"]) == 3
+                and summary["expected_monthly_incremental"] > 0
             )
             if not passed:
                 all_passed = False
@@ -630,11 +518,7 @@ def main():
         parser.print_help()
         return 1
 
-    # 如果命令行强制指定了模式
-    if args.mode != "auto":
-        input_data["mode"] = args.mode
-
-    result = calculate_roi(input_data)
+    result = calculate_content_growth_roi(input_data)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 

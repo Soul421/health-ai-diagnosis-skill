@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-健康行业AI落地诊断 - Pipeline 编排引擎
-=======================================
-对应 cognee 借鉴点：
-  1. 三层API设计（顶层4函数 → 中层Task → 底层脚本）
-  2. Pipeline + Task 任务编排架构
-  3. 双记忆体系（session_state 会话状态 + 持久化存储）
-  4. 真相子空间（data_validation 数据一致性校验）
+健康行业AI内容增长系统 - Pipeline 编排引擎 v2.0.0
+===================================================
+v2.0 重大变化：
+- 从"AI落地诊断" → "内容增长系统交付"
+- 流程：信息收集 → 定位诊断 → 卖点重构 → 痛点拆解 → 内容方案 → 直播方案 → 私域方案 → AI落地 → 执行计划
+- 输出7大模块的完整交付物，而不是诊断建议
 
-顶层API（4个入口）：
-  - run_full_diagnosis()  完整诊断流程
-  - run_roi_only()        仅ROI测算
-  - run_store_diagnose()  门店服务诊断
-  - run_pitfall_check()   坑点排查
-
-使用方式：
-  python3 pipeline.py --input '{"action": "full_diagnosis", "company_info": {...}}'
-  python3 pipeline.py --input input.json --output output.json
-  python3 pipeline.py --self-test
+顶层API：
+  - run_content_growth()    完整内容增长方案
+  - run_diagnosis_only()    仅定位诊断
+  - run_content_package()   内容套餐（短视频+私域）
+  - run_pitfall_check()     坑点排查
 """
 
 import json
@@ -27,19 +21,22 @@ import os
 import argparse
 import uuid
 import time
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from pathlib import Path
 
-# 导入本体知识库
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ontology import (
-    get_industry_config, get_score_conclusion, get_top_pitfalls,
-    get_pitfalls_by_category, DATA_VALIDATION_RULES,
-    ROADMAP_TEMPLATE, SCENARIO_BASELINE, DIMENSION_DEFS,
-    get_ontology_summary
+    get_industry_config, get_product_type, get_trust_path,
+    diagnose_bottlenecks, get_top_pitfalls,
+    get_pitfalls_by_category, CONTENT_GROWTH_MODULES,
+    PRICING_TIERS, EXECUTION_PLAN_30DAYS,
+    get_ontology_summary, recommend_modules, get_pricing_recommendation,
 )
+from calculate_score import calculate_score
+from calculate_scenarios import calculate_module_scores
+from calculate_roi import calculate_content_growth_roi
 
 
 # ============================================================
@@ -51,15 +48,14 @@ class TaskStatus(Enum):
     COMPLETED = "completed"
     SKIPPED = "skipped"
     FAILED = "failed"
-    NEEDS_INPUT = "needs_input"
 
 
 # ============================================================
-# 会话状态（对应 cognee 双记忆体系）
+# 会话状态
 # ============================================================
 @dataclass
 class SessionState:
-    """诊断会话状态 - 支持持久化保存/加载（中断续答）"""
+    """内容增长会话状态"""
     session_id: str = ""
     created_at: float = 0.0
     updated_at: float = 0.0
@@ -72,11 +68,15 @@ class SessionState:
 
     # 中间计算结果
     score_result: Dict[str, Any] = field(default_factory=dict)
+    product_type_result: Dict[str, Any] = field(default_factory=dict)
+    trust_path_result: Dict[str, Any] = field(default_factory=dict)
+    bottleneck_result: List[Dict] = field(default_factory=list)
+    module_result: Dict[str, Any] = field(default_factory=dict)
     roi_result: Dict[str, Any] = field(default_factory=dict)
-    scenario_result: Dict[str, Any] = field(default_factory=dict)
-    validation_result: Dict[str, Any] = field(default_factory=dict)
+    pitfall_result: Dict[str, Any] = field(default_factory=dict)
 
     # 最终产出
+    deliverables: Dict[str, Any] = field(default_factory=dict)
     final_report: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict:
@@ -89,9 +89,13 @@ class SessionState:
             "company_info": self.company_info,
             "industry_type": self.industry_type,
             "score_result": self.score_result,
+            "product_type_result": self.product_type_result,
+            "trust_path_result": self.trust_path_result,
+            "bottleneck_result": self.bottleneck_result,
+            "module_result": self.module_result,
             "roi_result": self.roi_result,
-            "scenario_result": self.scenario_result,
-            "validation_result": self.validation_result,
+            "pitfall_result": self.pitfall_result,
+            "deliverables": self.deliverables,
             "final_report": self.final_report,
         }
 
@@ -113,7 +117,6 @@ class SessionState:
 
     @classmethod
     def load(cls, filepath: str) -> 'SessionState':
-        """从文件加载会话状态"""
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return cls.from_dict(data)
@@ -123,19 +126,17 @@ class SessionState:
 # Task 基类
 # ============================================================
 class BaseTask:
-    """任务基类 - 对应 cognee 的 Task 抽象"""
-
+    """任务基类"""
     name: str = "base"
     label: str = "基础任务"
     description: str = ""
-    dependencies: List[str] = []  # 依赖的前置任务
+    dependencies: List[str] = []
 
     def __init__(self, state: SessionState):
         self.state = state
         self.status = TaskStatus.PENDING
 
     def can_run(self) -> bool:
-        """检查依赖是否满足"""
         for dep in self.dependencies:
             dep_status = self.state.task_statuses.get(dep, TaskStatus.PENDING.value)
             if dep_status not in [TaskStatus.COMPLETED.value, TaskStatus.SKIPPED.value]:
@@ -143,11 +144,9 @@ class BaseTask:
         return True
 
     def run(self) -> Dict[str, Any]:
-        """执行任务，返回结果字典"""
         raise NotImplementedError
 
     def execute(self) -> Dict[str, Any]:
-        """执行包装 - 状态管理"""
         if not self.can_run():
             self.status = TaskStatus.SKIPPED
             self.state.task_statuses[self.name] = self.status.value
@@ -170,306 +169,179 @@ class BaseTask:
 
 
 # ============================================================
-# 具体任务实现
+# 具体任务实现（v2.0 内容增长体系）
 # ============================================================
 
-class DataValidationTask(BaseTask):
-    """数据一致性校验 - 对应 cognee 真相子空间（truth_subspace）"""
-    name = "data_validation"
-    label = "数据合理性校验"
-    description = "检查企业输入数据的合理性，发现矛盾或异常时提示确认"
+class MaturityScoreTask(BaseTask):
+    """内容增长成熟度评分"""
+    name = "maturity_score"
+    label = "内容增长成熟度评分"
+    description = "5维度成熟度评分，按行业动态权重校准"
     dependencies = []
 
     def run(self) -> Dict[str, Any]:
         info = self.state.company_info
-        issues = []
-        passed = []
-
-        for rule in DATA_VALIDATION_RULES:
-            try:
-                check = rule["check"]
-                # 简单的表达式计算（安全范围内）
-                val = None
-                if "revenue" in check and "employee_count" in check:
-                    if info.get("revenue") and info.get("employee_count"):
-                        val = info["revenue"] / info["employee_count"]
-                elif "store_count" in check and "employee_count" in check:
-                    if info.get("store_count", 0) > 0 and info.get("employee_count"):
-                        val = info["employee_count"] / info["store_count"]
-                elif "customer_count" in check and "employee_count" in check:
-                    if info.get("customer_count") and info.get("employee_count"):
-                        val = info["customer_count"] / info["employee_count"]
-                elif "it_budget" in check and "revenue" in check:
-                    if info.get("it_budget") and info.get("revenue", 0) > 0:
-                        val = info["it_budget"] / info["revenue"]
-
-                if val is not None:
-                    if val < rule["min"] or val > rule["max"]:
-                        issues.append({
-                            "rule": rule["rule"],
-                            "value": round(val, 2),
-                            "expected": f"{rule['min']}-{rule['max']} {rule['unit']}",
-                            "severity": rule["severity"],
-                            "suggestion": f"该指标{val:.2f}{rule['unit']}超出常规范围({rule['min']}-{rule['max']})，请确认数据准确性",
-                        })
-                    else:
-                        passed.append(rule["rule"])
-            except (ZeroDivisionError, KeyError, TypeError):
-                pass  # 数据不全时跳过
-
-        result = {
-            "total_rules": len(DATA_VALIDATION_RULES),
-            "passed": len(passed),
-            "issues": len(issues),
-            "issue_list": issues,
-            "passed_list": passed,
-            "overall": "warning" if issues else "passed",
-        }
-        self.state.validation_result = result
-        return result
-
-
-class ScoreCalculationTask(BaseTask):
-    """五维度评分计算"""
-    name = "score_calculation"
-    label = "五维度AI落地评分"
-    description = "根据企业信息计算5维度评分，按行业动态权重校准"
-    dependencies = ["data_validation"]
-
-    def run(self) -> Dict[str, Any]:
-        info = self.state.company_info
-        industry = self.state.industry_type
-        weights = get_industry_config(industry)
-
-        # 简化评分逻辑（实际应调用 calculate_score.py 的完整逻辑）
-        # 这里基于公司信息做快速估算
-        dimension_scores = {}
-        dim_factors = {
-            "digital_base": ["it_system_count", "data_quality", "it_budget_ratio"],
-            "resource_readiness": ["budget_amount", "it_headcount", "management_support"],
-            "pain_urgency": ["labor_cost_ratio", "efficiency_bottleneck", "customer_churn"],
-            "team_acceptance": ["avg_age", "learning_willingness", "change_resistance"],
-            "compliance_risk": ["regulation_level", "data_sensitivity", "marketing_strictness"],
-        }
-
-        for dim, max_score in [(k, v["max_score"]) for k, v in DIMENSION_DEFS.items()]:
-            # 简化：如果有对应数据用数据，否则用行业中位数
-            raw_score = max_score * 0.6  # 默认基准分60%
-            if dim == "digital_base" and info.get("it_system_count"):
-                raw_score = min(max_score, info["it_system_count"] * max_score / 8)
-            elif dim == "resource_readiness" and info.get("it_budget") and info.get("revenue"):
-                ratio = info["it_budget"] / info["revenue"]
-                raw_score = min(max_score, ratio * max_score / 0.05)
-            elif dim == "pain_urgency" and info.get("labor_cost_ratio"):
-                raw_score = min(max_score, info["labor_cost_ratio"] * max_score / 0.6)
-            elif dim == "team_acceptance" and info.get("avg_age"):
-                raw_score = max(0, max_score * (1 - (info["avg_age"] - 25) / 30))
-            elif dim == "compliance_risk" and industry in ["medical", "experiential"]:
-                raw_score = max_score * 0.8  # 高合规行业风险分高（分越高越需要重视）
-
-            dimension_scores[dim] = {
-                "raw_score": round(raw_score, 1),
-                "max_score": DIMENSION_DEFS[dim]["max_score"],
-                "weight": weights[dim],
-                "weighted_score": round(raw_score * weights[dim], 2),
-                "label": DIMENSION_DEFS[dim]["label"],
-            }
-
-        total_weighted = sum(d["weighted_score"] for d in dimension_scores.values())
-        weight_values = {k: v for k, v in weights.items() if k != "label"}
-        # 计算加权满分：sum(维度满分 * 维度权重)
-        total_max = sum(DIMENSION_DEFS[dim]["max_score"] * weight_values[dim] for dim in DIMENSION_DEFS)
-        total_percent = round(total_weighted / total_max * 100, 1) if total_max > 0 else 0
-
-        conclusion = get_score_conclusion(total_percent)
-
-        result = {
-            "industry": industry,
-            "industry_label": weights.get("label", "通用"),
-            "dimension_scores": dimension_scores,
-            "total_weighted": round(total_weighted, 2),
-            "total_percent": total_percent,
-            "level": conclusion["level"],
-            "conclusion": conclusion["conclusion"],
-            "action": conclusion["action"],
-        }
+        # 把行业类型传进去
+        score_input = {**info, "industry_type": self.state.industry_type}
+        result = calculate_score(score_input)
         self.state.score_result = result
         return result
 
 
-class ScenarioRecommendationTask(BaseTask):
-    """场景推荐计算"""
-    name = "scenario_recommendation"
-    label = "AI落地场景推荐"
-    description = "基于企业特征动态计算10大场景适配度，输出Top 3推荐"
-    dependencies = ["score_calculation"]
+class ProductTypeTask(BaseTask):
+    """产品类型识别"""
+    name = "product_type"
+    label = "产品类型识别"
+    description = "判断产品属于功能型/体验型/刚需型/社交型"
+    dependencies = []
 
     def run(self) -> Dict[str, Any]:
         info = self.state.company_info
-        industry = self.state.industry_type
-        score = self.state.score_result
-
-        scenario_scores = {}
-        for sid, sdata in SCENARIO_BASELINE.items():
-            # 基础适配分
-            base = 60
-
-            # 行业适配加分
-            if "all" in sdata["fit_industries"] or industry in sdata["fit_industries"]:
-                base += 15
-
-            # 基于企业特征的调整
-            if info.get("store_count", 0) > 5 and sid in ["store_monitor", "supply_chain"]:
-                base += 15
-            if info.get("customer_count", 0) > 1000 and sid in ["customer_service", "private_domain"]:
-                base += 10
-            if info.get("employee_count", 0) > 50 and sid in ["training_learning", "sales_assistant"]:
-                base += 10
-            if info.get("marketing_team", 0) > 5 and sid in ["content_marketing", "data_analysis"]:
-                base += 10
-
-            # 难度调整（评分低的企业推荐低难度场景）
-            if score and score.get("total_percent", 60) < 60 and sdata["difficulty"] <= 2:
-                base += 10
-            if score and score.get("total_percent", 60) >= 80 and sdata["difficulty"] >= 3:
-                base += 5
-
-            scenario_scores[sid] = {
-                **sdata,
-                "id": sid,
-                "fit_score": min(100, base),
-            }
-
-        # 按适配度排序
-        sorted_scenarios = sorted(
-            scenario_scores.values(),
-            key=lambda x: x["fit_score"],
-            reverse=True
-        )
-
-        result = {
-            "total_scenarios": len(sorted_scenarios),
-            "top3": sorted_scenarios[:3],
-            "all_sorted": sorted_scenarios,
-            "recommendation_basis": f"基于{industry}行业特征+企业规模+评分等级综合计算",
+        product_info = {
+            "name": info.get("product_name", ""),
+            "description": info.get("product_description", ""),
+            "features": info.get("product_features", []),
         }
-        self.state.scenario_result = result
+        result = get_product_type(product_info)
+        self.state.product_type_result = result
+        return result
+
+
+class TrustPathTask(BaseTask):
+    """信任路径判断"""
+    name = "trust_path"
+    label = "信任成交路径判断"
+    description = "判断客户主要靠什么建立信任并下单"
+    dependencies = ["product_type"]
+
+    def run(self) -> Dict[str, Any]:
+        product_type_id = self.state.product_type_result.get("type_id", "functional")
+        result = get_trust_path(product_type_id, self.state.industry_type)
+        self.state.trust_path_result = result
+        return result
+
+
+class BottleneckDiagnosisTask(BaseTask):
+    """内容增长瓶颈诊断"""
+    name = "bottleneck_diagnosis"
+    label = "内容增长瓶颈诊断"
+    description = "识别当前内容增长的核心瓶颈（Top 3）"
+    dependencies = ["maturity_score"]
+
+    def run(self) -> Dict[str, Any]:
+        info = self.state.company_info
+        # 从评分结果中提取各维度分数
+        raw_scores = self.state.score_result.get("raw_scores", {})
+        result = diagnose_bottlenecks(info, raw_scores)
+        self.state.bottleneck_result = result
+        return {
+            "count": len(result),
+            "top3": result,
+            "primary": result[0] if result else None,
+        }
+
+
+class ModuleRecommendationTask(BaseTask):
+    """模块推荐引擎"""
+    name = "module_recommendation"
+    label = "7大模块优先级推荐"
+    description = "基于企业特征和瓶颈诊断，推荐模块实施顺序"
+    dependencies = ["bottleneck_diagnosis", "product_type", "trust_path"]
+
+    def run(self) -> Dict[str, Any]:
+        info = self.state.company_info
+        maturity_scores = self.state.score_result.get("raw_scores", {})
+        bottlenecks = self.state.bottleneck_result
+
+        result = calculate_module_scores(info, maturity_scores=maturity_scores, bottlenecks=bottlenecks)
+        self.state.module_result = result
         return result
 
 
 class ROICalculationTask(BaseTask):
-    """ROI分析计算"""
+    """内容增长ROI测算"""
     name = "roi_calculation"
-    label = "ROI投资回报分析"
-    description = "三档回本测算+隐性成本+策略对比"
-    dependencies = ["scenario_recommendation"]
+    label = "内容增长ROI测算"
+    description = "4档报价ROI对比 + 三阶段效果预测"
+    dependencies = ["module_recommendation"]
 
     def run(self) -> Dict[str, Any]:
         info = self.state.company_info
-        scenarios = self.state.scenario_result.get("top3", [])
-
-        # 估算总投入和收益
-        total_software_cost = sum(s.get("typical_cost_range", [3, 10])[1] for s in scenarios[:2])
-
-        revenue = info.get("revenue", 1000)  # 万
-        labor_cost_ratio = info.get("labor_cost_ratio", 0.3)
-        labor_cost = revenue * labor_cost_ratio
-
-        # 三档测算
-        gears = []
-        for gear_config in [
-            {"name": "保守档", "saving_mult": 0.3, "cost_mult": 1.5},
-            {"name": "基准档", "saving_mult": 0.5, "cost_mult": 1.0},
-            {"name": "激进档", "saving_mult": 0.8, "cost_mult": 0.8},
-        ]:
-            annual_saving = labor_cost * 0.1 * gear_config["saving_mult"]  # 假设10%人力被优化
-            total_cost = total_software_cost * gear_config["cost_mult"]
-            hidden_cost = total_cost * 1.0  # 首年隐性成本1:1
-            total_first_year = total_cost + hidden_cost
-
-            payback_months = round(total_first_year / (annual_saving / 12), 1) if annual_saving > 0 else 99
-
-            gears.append({
-                "gear": gear_config["name"],
-                "software_cost": round(total_software_cost, 1),
-                "hidden_cost": round(hidden_cost, 1),
-                "total_first_year": round(total_first_year, 1),
-                "annual_saving": round(annual_saving, 1),
-                "payback_months": payback_months,
-                "roi_3year": round((annual_saving * 3 - total_first_year) / total_first_year * 100, 1) if total_first_year > 0 else 0,
-            })
-
-        result = {
-            "base_assumptions": {
-                "annual_revenue": revenue,
-                "labor_cost_ratio": labor_cost_ratio,
-                "annual_labor_cost": round(labor_cost, 1),
-                "selected_scenarios": [s["label"] for s in scenarios[:2]],
-            },
-            "gears": gears,
-            "conclusion": self._get_roi_conclusion(gears),
+        roi_input = {
+            **info,
+            "industry_type": self.state.industry_type,
         }
+        result = calculate_content_growth_roi(roi_input)
         self.state.roi_result = result
         return result
 
-    def _get_roi_conclusion(self, gears: List[Dict]) -> str:
-        baseline = next((g for g in gears if g["gear"] == "基准档"), gears[1])
-        if baseline["payback_months"] <= 6:
-            return f"回报周期极短（{baseline['payback_months']}个月），强烈推荐立即启动"
-        elif baseline["payback_months"] <= 12:
-            return f"回报周期合理（{baseline['payback_months']}个月），建议尽快启动"
-        elif baseline["payback_months"] <= 24:
-            return f"回报周期中等（{baseline['payback_months']}个月），建议试点验证后推广"
-        else:
-            return f"回报周期较长（{baseline['payback_months']}个月），建议降低投入或延后"
 
-
-class RoadmapTask(BaseTask):
-    """路线图生成"""
-    name = "roadmap_generation"
-    label = "三阶段落地路线图"
-    description = "根据企业情况生成定制化的三阶段落地路线图"
+class DeliverablesGenerationTask(BaseTask):
+    """交付物生成"""
+    name = "deliverables_generation"
+    label = "7大模块交付物生成"
+    description = "根据各模块模板生成可直接使用的交付物"
     dependencies = ["roi_calculation"]
 
     def run(self) -> Dict[str, Any]:
-        score = self.state.score_result
-        scenarios = self.state.scenario_result.get("top3", [])
+        info = self.state.company_info
+        modules = self.state.module_result.get("modules_sorted", [])
+        pricing_rec = get_pricing_recommendation(info)
 
-        level = score.get("level", "B") if score else "B"
-
-        # 根据等级调整节奏
-        pace_map = {
-            "S": {"mult": 1.2, "note": "基础好，可加速推进"},
-            "A": {"mult": 1.0, "note": "正常节奏推进"},
-            "B": {"mult": 0.8, "note": "适当放缓，先补基础"},
-            "C": {"mult": 0.6, "note": "从低成本工具入手"},
-            "D": {"mult": 0.4, "note": "先做数字化基础建设"},
-        }
-        pace = pace_map.get(level, pace_map["B"])
-
-        roadmap = {}
-        for phase_key, phase_data in ROADMAP_TEMPLATE.items():
-            adjusted_budget = [
-                round(b * pace["mult"], 0) for b in phase_data["budget_range"]
-            ]
-            roadmap[phase_key] = {
-                **phase_data,
-                "adjusted_budget_range": adjusted_budget,
-                "priority_scenarios": [s["label"] for s in scenarios[:2]] if phase_key == "phase1" else [],
+        # 生成各模块交付物清单（基于模板，实际内容由LLM填充）
+        deliverables = {}
+        for m_id, m_data in CONTENT_GROWTH_MODULES.items():
+            deliverables[m_id] = {
+                "module_name": m_data["module_name"],
+                "module_order": m_data["module_order"],
+                "description": m_data["description"],
+                "core_value": m_data["core_value"],
+                "deliverables_list": m_data["deliverables"],
+                "deliverables_count": len(m_data["deliverables"]),
+                "timeline": m_data["timeline"],
+                "difficulty": m_data["difficulty"],
+                "ai_enhancement": m_data.get("ai_enhancement", ""),
+                "tools": m_data.get("tools", {}),
+                "template_path": f"templates/模块{m_data['module_order']}_{m_data['module_name']}.md",
             }
 
-        result = {
-            "level": level,
-            "pace_note": pace["note"],
-            "phases": roadmap,
+        # 30天执行计划
+        execution_plan = {
+            "plan_name": "30天内容增长落地计划",
+            "phases": EXECUTION_PLAN_30DAYS,
+            "responsible_roles": {
+                "老板/负责人": "方向把控、资源协调、审核把关",
+                "内容岗": "选题、脚本、拍摄、剪辑、发布",
+                "销售岗": "私域承接、客户跟进、话术应用",
+                "运营岗": "数据复盘、社群运营、活动策划",
+            },
         }
+
+        # 产品报价
+        pricing = {
+            "recommended_tier": pricing_rec["recommended_tier"],
+            "recommended_label": pricing_rec["tier"],
+            "recommended_price": pricing_rec["price"],
+            "all_tiers": PRICING_TIERS,
+        }
+
+        result = {
+            "modules": deliverables,
+            "total_modules": len(deliverables),
+            "total_deliverables": sum(m["deliverables_count"] for m in deliverables.values()),
+            "execution_plan": execution_plan,
+            "pricing": pricing,
+            "note": "交付物模板位于templates/目录，具体内容需结合企业实际情况填充",
+        }
+
+        self.state.deliverables = result
         return result
 
 
 class PitfallCheckTask(BaseTask):
     """坑点排查 - 可独立运行"""
     name = "pitfall_check"
-    label = "落地坑点排查"
+    label = "内容增长坑点排查"
     description = "根据企业特征匹配最可能踩的坑，提前预警"
     dependencies = []
 
@@ -477,7 +349,6 @@ class PitfallCheckTask(BaseTask):
         info = self.state.company_info
         industry = self.state.industry_type
 
-        # 基于企业特征匹配相关坑点
         relevant_pitfalls = []
         all_pitfalls = get_top_pitfalls(25)
 
@@ -485,19 +356,19 @@ class PitfallCheckTask(BaseTask):
             relevance = 0
 
             # 行业相关
-            if pitfall["category"] == "合规" and industry in ["medical", "experiential", "chain_store"]:
+            if pitfall["category"] == "合规" and industry in ["medical", "anti_aging", "experiential"]:
                 relevance += 30
-            if pitfall["category"] == "数据" and info.get("customer_count", 0) > 500:
+            if pitfall["category"] == "内容" and info.get("content_team_size", 0) < 3:
+                relevance += 25
+            if pitfall["category"] == "信任" and info.get("customer_count", 0) > 1000:
                 relevance += 20
-            if pitfall["category"] == "组织" and info.get("employee_count", 0) > 20:
+            if pitfall["category"] == "转化" and info.get("has_livestream", False):
                 relevance += 20
-            if pitfall["category"] == "内容" and info.get("marketing_team", 0) > 3:
-                relevance += 15
-            if pitfall["category"] == "成本" and info.get("it_budget", 0) > 0:
-                relevance += 10
+            if pitfall["category"] == "私域" and info.get("has_private_domain", False):
+                relevance += 20
 
             # 严重程度基础分
-            severity_score = {"critical": 30, "high": 20, "medium": 10, "low": 5}
+            severity_score = {"critical": 25, "high": 15, "medium": 8, "low": 3}
             relevance += severity_score.get(pitfall["severity"], 5)
 
             relevant_pitfalls.append({
@@ -512,34 +383,60 @@ class PitfallCheckTask(BaseTask):
             "top10": relevant_pitfalls[:10],
             "by_category": {
                 cat: [p for p in relevant_pitfalls if p["category"] == cat][:3]
-                for cat in ["合规", "组织", "数据", "成本", "内容", "技术"]
+                for cat in ["合规", "内容", "产品", "信任", "转化", "私域", "团队", "战略"]
+                if any(p["category"] == cat for p in relevant_pitfalls)
             },
-            "most_critical": relevant_pitfalls[:3],
+            "most_critical": [p for p in relevant_pitfalls if p["severity"] == "critical"][:3],
         }
+        self.state.pitfall_result = result
         return result
 
 
 # ============================================================
 # Pipeline 引擎
 # ============================================================
-class DiagnosisPipeline:
-    """诊断流水线 - 对应 cognee 的 Pipeline 编排"""
+class ContentGrowthPipeline:
+    """内容增长流水线"""
 
     TASK_CLASSES = {
-        "data_validation": DataValidationTask,
-        "score_calculation": ScoreCalculationTask,
-        "scenario_recommendation": ScenarioRecommendationTask,
+        "maturity_score": MaturityScoreTask,
+        "product_type": ProductTypeTask,
+        "trust_path": TrustPathTask,
+        "bottleneck_diagnosis": BottleneckDiagnosisTask,
+        "module_recommendation": ModuleRecommendationTask,
         "roi_calculation": ROICalculationTask,
-        "roadmap_generation": RoadmapTask,
+        "deliverables_generation": DeliverablesGenerationTask,
         "pitfall_check": PitfallCheckTask,
     }
 
-    FULL_DIAGNOSIS_FLOW = [
-        "data_validation",
-        "score_calculation",
-        "scenario_recommendation",
+    # 完整内容增长流程（8步）
+    FULL_FLOW = [
+        "maturity_score",
+        "product_type",
+        "trust_path",
+        "bottleneck_diagnosis",
+        "module_recommendation",
         "roi_calculation",
-        "roadmap_generation",
+        "deliverables_generation",
+    ]
+
+    # 仅诊断流程（前4步）
+    DIAGNOSIS_ONLY_FLOW = [
+        "maturity_score",
+        "product_type",
+        "trust_path",
+        "bottleneck_diagnosis",
+        "pitfall_check",
+    ]
+
+    # 内容套餐流程（短视频+私域）
+    CONTENT_PACKAGE_FLOW = [
+        "maturity_score",
+        "product_type",
+        "trust_path",
+        "bottleneck_diagnosis",
+        "module_recommendation",
+        "roi_calculation",
     ]
 
     def __init__(self, state: Optional[SessionState] = None):
@@ -549,16 +446,13 @@ class DiagnosisPipeline:
             self.state.created_at = time.time()
 
     def run_task(self, task_name: str) -> Dict[str, Any]:
-        """执行单个任务"""
         if task_name not in self.TASK_CLASSES:
             return {"status": "failed", "error": f"Unknown task: {task_name}"}
-
         task_class = self.TASK_CLASSES[task_name]
         task = task_class(self.state)
         return task.execute()
 
     def run_flow(self, task_names: List[str]) -> Dict[str, Any]:
-        """执行一组任务（按顺序，自动处理依赖）"""
         results = {}
         for task_name in task_names:
             result = self.run_task(task_name)
@@ -581,27 +475,28 @@ class DiagnosisPipeline:
             "task_statuses": self.state.task_statuses,
             "has_score": bool(self.state.score_result),
             "has_roi": bool(self.state.roi_result),
-            "has_scenarios": bool(self.state.scenario_result),
-            "validation_issues": len(self.state.validation_result.get("issue_list", [])) if self.state.validation_result else 0,
+            "has_modules": bool(self.state.module_result),
+            "has_deliverables": bool(self.state.deliverables),
+            "bottlenecks_count": len(self.state.bottleneck_result),
         }
 
 
 # ============================================================
-# 顶层 API（对应 cognee 顶层4函数设计）
+# 顶层 API
 # ============================================================
 
-def run_full_diagnosis(company_info: Dict, industry_type: str = "default",
-                       save_path: Optional[str] = None) -> Dict[str, Any]:
+def run_content_growth(company_info: Dict, industry_type: str = "default",
+                      save_path: Optional[str] = None) -> Dict[str, Any]:
     """
-    【顶层API 1/4】完整诊断流程
-    输入企业信息 → 数据校验 → 评分 → 场景推荐 → ROI → 路线图
+    【顶层API 1/4】完整内容增长方案
+    输入企业信息 → 成熟度评分 → 产品/信任/瓶颈诊断 → 模块推荐 → ROI → 交付物
     """
     state = SessionState(
         company_info=company_info,
         industry_type=industry_type,
     )
-    pipeline = DiagnosisPipeline(state)
-    result = pipeline.run_flow(DiagnosisPipeline.FULL_DIAGNOSIS_FLOW)
+    pipeline = ContentGrowthPipeline(state)
+    result = pipeline.run_flow(ContentGrowthPipeline.FULL_FLOW)
 
     if save_path:
         state.save(save_path)
@@ -610,56 +505,37 @@ def run_full_diagnosis(company_info: Dict, industry_type: str = "default",
     return result
 
 
-def run_roi_only(company_info: Dict, industry_type: str = "default",
-                 scenarios: Optional[List[str]] = None) -> Dict[str, Any]:
+def run_diagnosis_only(company_info: Dict, industry_type: str = "default",
+                       save_path: Optional[str] = None) -> Dict[str, Any]:
     """
-    【顶层API 2/4】仅ROI测算
-    快速计算投资回报，不需要完整诊断
+    【顶层API 2/4】仅定位诊断
+    快速诊断：成熟度+产品类型+信任路径+核心瓶颈+坑点
     """
     state = SessionState(
         company_info=company_info,
         industry_type=industry_type,
     )
-    # 先快速跑评分和场景，再算ROI
-    pipeline = DiagnosisPipeline(state)
-    result = pipeline.run_flow([
-        "data_validation",
-        "score_calculation",
-        "scenario_recommendation",
-        "roi_calculation",
-    ])
+    pipeline = ContentGrowthPipeline(state)
+    result = pipeline.run_flow(ContentGrowthPipeline.DIAGNOSIS_ONLY_FLOW)
+
+    if save_path:
+        state.save(save_path)
+        result["save_path"] = save_path
+
     return result
 
 
-def run_store_diagnose(store_info: Dict) -> Dict[str, Any]:
+def run_content_package(company_info: Dict, industry_type: str = "default") -> Dict[str, Any]:
     """
-    【顶层API 3/4】门店服务诊断
-    专门针对连锁门店的服务质量诊断
+    【顶层API 3/4】内容套餐（短视频+私域）
+    针对内容团队的快速方案
     """
-    # 复用评分+坑点，但针对门店场景加权
-    company_info = {
-        **store_info,
-        "store_count": store_info.get("store_count", 1),
-    }
     state = SessionState(
         company_info=company_info,
-        industry_type="chain_store",
+        industry_type=industry_type,
     )
-    pipeline = DiagnosisPipeline(state)
-    result = pipeline.run_flow([
-        "data_validation",
-        "score_calculation",
-        "scenario_recommendation",
-        "pitfall_check",
-    ])
-    # 门店相关场景优先
-    if state.scenario_result:
-        store_scenarios = [s for s in state.scenario_result.get("all_sorted", [])
-                          if s["id"] in ["store_monitor", "quality_control", "training_learning"]]
-        result["store_focus"] = {
-            "key_scenarios": store_scenarios[:3],
-            "focus_areas": ["服务质量监控", "合规风控", "员工培训"],
-        }
+    pipeline = ContentGrowthPipeline(state)
+    result = pipeline.run_flow(ContentGrowthPipeline.CONTENT_PACKAGE_FLOW)
     return result
 
 
@@ -667,37 +543,14 @@ def run_pitfall_check(company_info: Dict, industry_type: str = "default",
                       top_n: int = 10) -> Dict[str, Any]:
     """
     【顶层API 4/4】坑点排查
-    快速评估企业AI落地最可能踩的坑
+    快速评估内容增长最可能踩的坑
     """
     state = SessionState(
         company_info=company_info,
         industry_type=industry_type,
     )
-    pipeline = DiagnosisPipeline(state)
+    pipeline = ContentGrowthPipeline(state)
     result = pipeline.run_task("pitfall_check")
-    return result
-
-
-def resume_diagnosis(save_path: str, next_task: Optional[str] = None) -> Dict[str, Any]:
-    """
-    【状态恢复】从保存的会话状态继续诊断
-    对应 cognee 双记忆体系中的持久化记忆
-    """
-    state = SessionState.load(save_path)
-    pipeline = DiagnosisPipeline(state)
-
-    if next_task:
-        result = pipeline.run_task(next_task)
-    else:
-        # 找第一个未完成的任务继续
-        pending = [t for t in DiagnosisPipeline.FULL_DIAGNOSIS_FLOW
-                   if state.task_statuses.get(t, "pending") == "pending"]
-        if pending:
-            result = pipeline.run_flow(pending)
-        else:
-            result = {"status": "completed", "message": "所有任务已完成"}
-
-    state.save(save_path)
     return result
 
 
@@ -705,14 +558,13 @@ def resume_diagnosis(save_path: str, next_task: Optional[str] = None) -> Dict[st
 # 命令行入口
 # ============================================================
 def main():
-    parser = argparse.ArgumentParser(description="健康行业AI诊断Pipeline引擎")
+    parser = argparse.ArgumentParser(description="健康行业AI内容增长系统 Pipeline v2.0.0")
     parser.add_argument("--input", "-i", help="输入JSON文件路径或JSON字符串")
     parser.add_argument("--output", "-o", help="输出JSON文件路径")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
-    parser.add_argument("--action", choices=["full", "roi", "store", "pitfall", "resume"],
+    parser.add_argument("--action", choices=["full", "diagnosis", "content", "pitfall"],
                         default="full", help="执行动作")
     parser.add_argument("--save", help="会话状态保存路径")
-    parser.add_argument("--resume-from", help="从指定状态文件恢复")
     args = parser.parse_args()
 
     if args.self_test:
@@ -732,14 +584,12 @@ def main():
     industry = input_data.get("industry_type", "default")
 
     # 选择动作
-    if args.resume_from:
-        result = resume_diagnosis(args.resume_from)
-    elif args.action == "full":
-        result = run_full_diagnosis(company_info, industry, args.save)
-    elif args.action == "roi":
-        result = run_roi_only(company_info, industry)
-    elif args.action == "store":
-        result = run_store_diagnose(company_info)
+    if args.action == "full":
+        result = run_content_growth(company_info, industry, args.save)
+    elif args.action == "diagnosis":
+        result = run_diagnosis_only(company_info, industry, args.save)
+    elif args.action == "content":
+        result = run_content_package(company_info, industry)
     elif args.action == "pitfall":
         result = run_pitfall_check(company_info, industry)
     else:
@@ -758,71 +608,83 @@ def main():
 def _run_self_test():
     """自测 - 验证4个顶层API都能跑通"""
     print("=" * 60)
-    print("健康行业AI诊断 Pipeline 引擎 - 自测")
+    print("健康行业AI内容增长系统 Pipeline v2.0.0 - 自测")
     print("=" * 60)
 
+    # 测试案例：羊奶产品，会销模式，50人团队，年营收5000万
     test_company = {
-        "company_name": "康源健康测试公司",
-        "revenue": 2000,  # 万/年
-        "employee_count": 80,
-        "store_count": 12,
-        "customer_count": 5000,
-        "it_budget": 30,  # 万/年
-        "labor_cost_ratio": 0.35,
-        "marketing_team": 6,
+        "company_name": "康源羊奶",
+        "product_name": "中老年高钙羊奶粉",
+        "product_description": "会销模式销售，针对中老年人",
+        "product_features": ["高钙", "易吸收", "增强免疫力"],
+        "annual_revenue_wan": 5000,
+        "employee_count": 50,
+        "content_team_size": 3,
+        "has_short_video": True,
+        "has_livestream": True,
+        "has_private_domain": True,
+        "has_brand_story": True,
+        "customer_count": 20000,
+        "avg_price": 398,
+        "conversion_rate": 0.05,
+        "repurchase_rate": 0.35,
+        "has_ai_experience": False,
     }
 
-    ontology_summary = get_ontology_summary()
-    print(f"\n✓ 本体知识库: {ontology_summary['industries']}行业 / {ontology_summary['scenarios']}场景 / {ontology_summary['pitfalls']}坑点")
+    summary = get_ontology_summary()
+    print(f"\n✓ 本体知识库: v{summary['version']}")
+    print(f"  - {summary['content_growth_modules']}个内容增长模块")
+    print(f"  - {summary['product_types']}种产品类型")
+    print(f"  - {summary['pricing_tiers']}档产品报价")
+    print(f"  - {summary['pitfalls']}个坑点")
 
     # 测试1: 坑点排查（最快）
     print("\n[1/4] 测试 pitfall_check...")
-    r1 = run_pitfall_check(test_company, "chain_store")
+    r1 = run_pitfall_check(test_company, "experiential")
     assert r1["status"] == "completed"
     assert len(r1["result"]["top10"]) == 10
     print(f"  ✓ 坑点排查通过, Top1: {r1['result']['top10'][0]['title']}")
 
-    # 测试2: ROI测算
-    print("\n[2/4] 测试 roi_only...")
-    r2 = run_roi_only(test_company, "chain_store")
-    assert r2["completed"] >= 3
-    assert "gears" in r2["task_results"]["roi_calculation"]["result"]
-    baseline = next(g for g in r2["task_results"]["roi_calculation"]["result"]["gears"] if g["gear"] == "基准档")
-    print(f"  ✓ ROI测算通过, 基准档回本: {baseline['payback_months']}个月")
+    # 测试2: 仅诊断
+    print("\n[2/4] 测试 diagnosis_only...")
+    r2 = run_diagnosis_only(test_company, "experiential")
+    assert r2["completed"] >= 4
+    assert "maturity_score" in r2["task_results"]
+    score_level = r2["task_results"]["maturity_score"]["result"]["level"]
+    print(f"  ✓ 定位诊断通过, 成熟度等级: {score_level}")
 
-    # 测试3: 门店诊断
-    print("\n[3/4] 测试 store_diagnose...")
-    r3 = run_store_diagnose(test_company)
-    assert r3["completed"] >= 3
-    print(f"  ✓ 门店诊断通过, 评分等级: {r3['task_results']['score_calculation']['result']['level']}")
+    # 测试3: 内容套餐
+    print("\n[3/4] 测试 content_package...")
+    r3 = run_content_package(test_company, "experiential")
+    assert r3["completed"] >= 4
+    assert "module_recommendation" in r3["task_results"]
+    top_module = r3["task_results"]["module_recommendation"]["result"]["top3_modules"][0]
+    print(f"  ✓ 内容套餐通过, 首推模块: {top_module}")
 
-    # 测试4: 完整诊断 + 状态持久化
-    print("\n[4/4] 测试 full_diagnosis + 状态持久化...")
-    save_path = "/tmp/test_diagnosis_state.json"
-    r4 = run_full_diagnosis(test_company, "chain_store", save_path)
-    assert r4["completed"] == 5
+    # 测试4: 完整方案
+    print("\n[4/4] 测试 full_content_growth...")
+    save_path = "/tmp/test_content_growth_state.json"
+    r4 = run_content_growth(test_company, "experiential", save_path)
+    assert r4["completed"] == 7
     assert os.path.exists(save_path)
-    print(f"  ✓ 完整诊断通过, 5个任务全部完成")
+    assert "deliverables_generation" in r4["task_results"]
+    deliverables = r4["task_results"]["deliverables_generation"]["result"]
+    print(f"  ✓ 完整方案通过, 7个任务全部完成")
+    print(f"  ✓ 交付物: {deliverables['total_modules']}个模块, {deliverables['total_deliverables']}份文件")
+    print(f"  ✓ 推荐档位: {deliverables['pricing']['recommended_label']} ({deliverables['pricing']['recommended_price']})")
     print(f"  ✓ 状态持久化通过, 保存到: {save_path}")
-
-    # 测试5: 状态恢复
-    print("\n[额外] 测试状态恢复...")
-    resumed = resume_diagnosis(save_path)
-    assert resumed["status"] == "completed"
-    print(f"  ✓ 状态恢复通过")
 
     # 清理
     os.remove(save_path)
 
     print("\n" + "=" * 60)
-    print("✅ 所有测试通过！Pipeline 引擎运行正常")
+    print("✅ 所有测试通过！内容增长系统 v2.0.0 运行正常")
     print("=" * 60)
     print("\n顶层API清单：")
-    print("  1. run_full_diagnosis()    - 完整诊断（6步流程）")
-    print("  2. run_roi_only()          - 仅ROI测算")
-    print("  3. run_store_diagnose()    - 门店服务诊断")
+    print("  1. run_content_growth()    - 完整内容增长方案（7步）")
+    print("  2. run_diagnosis_only()    - 仅定位诊断")
+    print("  3. run_content_package()   - 内容套餐（短视频+私域）")
     print("  4. run_pitfall_check()     - 坑点排查")
-    print("  5. resume_diagnosis()      - 中断续答")
 
 
 if __name__ == "__main__":
