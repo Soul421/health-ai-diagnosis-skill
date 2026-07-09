@@ -1,0 +1,3119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI内容增长诊断报告 | 康卫士·清幽益生菌</title>
+<style>
+/* ========== Reset & Base ========== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #F8FAFC;
+  color: #0F172A;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== CSS Variables ========== */
+:root {
+  --primary-900: #0F172A;
+  --primary-800: #1E293B;
+  --primary-700: #1E3A8A;
+  --primary-600: #2563EB;
+  --primary-500: #3B82F6;
+  --cyan-500: #06B6D4;
+  --cyan-400: #22D3EE;
+  --cyan-300: #67E8F9;
+  --cyan-50: #ECFEFF;
+  --slate-50: #F8FAFC;
+  --slate-100: #F1F5F9;
+  --slate-200: #E2E8F0;
+  --slate-300: #CBD5E1;
+  --slate-400: #94A3B8;
+  --slate-500: #64748B;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1E293B;
+  --red-500: #EF4444;
+  --red-50: #FEF2F2;
+  --orange-500: #F97316;
+  --orange-50: #FFF7ED;
+  --yellow-500: #EAB308;
+  --yellow-50: #FEFCE8;
+  --green-500: #10B981;
+  --green-50: #ECFDF5;
+  --purple-500: #8B5CF6;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.1);
+  --shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.15);
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== Layout ========== */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 1024px) {
+  .container { max-width: 960px; }
+}
+@media (min-width: 1280px) {
+  .container { max-width: 1120px; }
+}
+
+/* ========== Hero Section ========== */
+.hero {
+  background: linear-gradient(135deg, var(--primary-900) 0%, var(--primary-700) 50%, #1E40AF 100%);
+  color: white;
+  padding: 60px 0 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  padding: 6px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  color: var(--cyan-300);
+  backdrop-filter: blur(10px);
+}
+.hero-badge .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--cyan-400);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+.hero-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+.hero-company {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+.hero-date {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.hero-score {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+/* ===== 升级版分数圆环 ===== */
+.score-ring-wrapper {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 外层光晕 */
+.score-ring-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, rgba(6, 182, 212, 0.05) 40%, transparent 70%);
+  border-radius: 50%;
+  z-index: 0;
+}
+/* 刻度环 SVG 容器 */
+.score-ticks-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* 主进度环 SVG 容器 */
+.score-main-svg {
+  position: absolute;
+  inset: 24px;
+  z-index: 2;
+  filter: drop-shadow(0 0 12px rgba(6, 182, 212, 0.4));
+}
+.score-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 6;
+}
+.score-ring-progress {
+  fill: none;
+  stroke: url(#scoreGradient);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 351.86;
+  stroke-dashoffset: 351.86;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* 进度端点发光点 */
+.score-dot {
+  fill: #67E8F9;
+  filter: drop-shadow(0 0 6px rgba(103, 232, 249, 0.8));
+  opacity: 0;
+  transition: opacity 0.5s ease 1.5s;
+}
+.score-dot.visible {
+  opacity: 1;
+}
+/* 内环玻璃面板 */
+.score-glass-panel {
+  position: relative;
+  z-index: 3;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+/* 面板内高光 */
+.score-glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 55%;
+  height: 24px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.18), transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.score-number-group {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1;
+}
+.score-number {
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  background: linear-gradient(135deg, #ffffff 0%, #a5f3fc 50%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+}
+.score-unit {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(165, 243, 252, 0.75);
+  margin-top: 14px;
+  margin-left: 2px;
+}
+.score-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+/* 等级徽章（圆环外） */
+.score-level-outside {
+  position: relative;
+  z-index: 4;
+  margin-top: -12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 58, 138, 0.85));
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #67E8F9;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.score-level-outside .sparkle {
+  font-size: 10px;
+  color: #22D3EE;
+}
+/* 旋转装饰环 */
+.score-rotate-ring {
+  position: absolute;
+  inset: 8px;
+  z-index: 1;
+  border-radius: 50%;
+  border: 1px dashed rgba(6, 182, 212, 0.15);
+  animation: rotate-ring 20s linear infinite;
+}
+.score-rotate-ring::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background: #22D3EE;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #22D3EE, 0 0 20px rgba(34, 211, 238, 0.5);
+}
+@keyframes rotate-ring {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 640px) {
+  .hero { padding: 40px 0 60px; }
+  .hero-title { font-size: 28px; }
+  .hero-company { font-size: 16px; }
+  .score-ring-wrapper { width: 200px; height: 200px; }
+  .score-glass-panel { width: 136px; height: 136px; }
+  .score-number { font-size: 48px; }
+  .score-unit { font-size: 16px; margin-top: 8px; }
+}
+
+/* ========== Section Base ========== */
+.section {
+  padding: 48px 0;
+}
+.section-header {
+  margin-bottom: 28px;
+}
+.section-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cyan-500);
+  background: var(--cyan-50);
+  padding: 4px 12px;
+  border-radius: 100px;
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-900);
+  letter-spacing: -0.3px;
+}
+.section-desc {
+  font-size: 14px;
+  color: var(--slate-500);
+  margin-top: 6px;
+}
+@media (max-width: 640px) {
+  .section { padding: 36px 0; }
+  .section-title { font-size: 20px; }
+}
+
+/* ========== Card ========== */
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: var(--transition);
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+.card-body {
+  padding: 24px;
+}
+@media (max-width: 640px) {
+  .card-body { padding: 20px; }
+}
+
+/* ========== Company Research Section ========== */
+.research-section {
+  background: linear-gradient(180deg, var(--slate-50) 0%, white 100%);
+  padding-bottom: 32px;
+}
+.research-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (min-width: 768px) {
+  .research-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.research-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--slate-100);
+  overflow: hidden;
+  transition: var(--transition);
+}
+.research-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--slate-200);
+}
+.research-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--slate-50);
+}
+.research-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.research-card-icon.profile {
+  background: linear-gradient(135deg, var(--cyan-50), #E0F2FE);
+  color: var(--primary-600);
+}
+.research-card-icon.product {
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  color: #059669;
+}
+.research-card-icon.content {
+  background: linear-gradient(135deg, #F0F9FF, #DBEAFE);
+  color: #2563EB;
+}
+.research-card-icon.reputation {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  color: #D97706;
+}
+.research-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-800);
+  flex: 1;
+}
+.research-card-tag {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-weight: 500;
+}
+.research-card-tag.success {
+  background: var(--green-50);
+  color: var(--green-500);
+}
+.research-card-tag.warning {
+  background: var(--yellow-50);
+  color: var(--yellow-500);
+}
+.research-card-tag.info {
+  background: var(--cyan-50);
+  color: var(--cyan-500);
+}
+.research-card-body {
+  padding: 16px 20px 20px;
+}
+.research-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.research-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.research-info-label {
+  font-size: 13px;
+  color: var(--slate-500);
+  flex-shrink: 0;
+}
+.research-info-value {
+  font-size: 13px;
+  color: var(--slate-700);
+  font-weight: 500;
+  text-align: right;
+  line-height: 1.5;
+}
+.research-info-value.verified {
+  color: var(--green-500);
+}
+.research-info-value.warning {
+  color: var(--orange-500);
+}
+
+/* 内容平台表现 */
+.platform-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.platform-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+.platform-item:hover {
+  background: var(--cyan-50);
+}
+.platform-item.active {
+  background: linear-gradient(135deg, var(--cyan-50), white);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+.platform-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.platform-icon.wechat { background: #07C160; }
+.platform-icon.douyin { background: #000000; }
+.platform-icon.xiaohongshu { background: #FE2C55; }
+.platform-icon.video { background: #07C160; }
+.platform-icon.kuaishou { background: #FF4906; }
+.platform-info {
+  flex: 1;
+  min-width: 0;
+}
+.platform-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-700);
+  margin-bottom: 2px;
+}
+.platform-meta {
+  font-size: 11px;
+  color: var(--slate-400);
+}
+.platform-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.platform-status.active {
+  background: var(--green-50);
+  color: var(--green-500);
+}
+.platform-status.inactive {
+  background: var(--slate-100);
+  color: var(--slate-400);
+}
+
+/* 口碑评分 */
+.reputation-score-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--slate-100);
+}
+.reputation-score-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan-500), var(--primary-600));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+.reputation-score-num {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.reputation-score-label {
+  font-size: 9px;
+  opacity: 0.8;
+  letter-spacing: 1px;
+}
+.reputation-summary {
+  flex: 1;
+}
+.reputation-summary-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 4px;
+}
+.reputation-summary-desc {
+  font-size: 12px;
+  color: var(--slate-500);
+  line-height: 1.6;
+}
+.reputation-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reputation-tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.reputation-tag-label {
+  font-size: 11px;
+  color: var(--slate-500);
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+.reputation-tag {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-weight: 500;
+}
+.reputation-tag.positive {
+  background: var(--green-50);
+  color: var(--green-500);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.reputation-tag.negative {
+  background: var(--red-50);
+  color: var(--red-500);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* 差异提示条 */
+.diff-alert {
+  margin-top: 20px;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+}
+.diff-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.diff-alert-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #F59E0B;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.diff-alert-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400E;
+}
+.diff-alert-subtitle {
+  font-size: 12px;
+  color: #B45309;
+}
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.diff-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.diff-type-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.diff-type-badge.major {
+  background: var(--red-500);
+  color: white;
+}
+.diff-type-badge.minor {
+  background: var(--orange-500);
+  color: white;
+}
+.diff-type-badge.consistent {
+  background: var(--green-500);
+  color: white;
+}
+.diff-content {
+  flex: 1;
+  color: var(--slate-700);
+  line-height: 1.6;
+}
+.diff-content strong {
+  color: var(--primary-700);
+}
+
+/* 可信度指标 */
+.confidence-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--cyan-50), #F0F9FF);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  margin-bottom: 20px;
+}
+.confidence-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.confidence-info {
+  flex: 1;
+}
+.confidence-label {
+  font-size: 12px;
+  color: var(--slate-600);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.confidence-track {
+  height: 6px;
+  background: rgba(6, 182, 212, 0.2);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan-500), var(--primary-600));
+  border-radius: 100px;
+  width: 0%;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.confidence-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-700);
+  flex-shrink: 0;
+}
+.confidence-value small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--slate-500);
+}
+
+/* ========== Overview Section ========== */
+.overview-card {
+  margin-top: -40px;
+  position: relative;
+  z-index: 10;
+}
+.overview-content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.level-badge {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--cyan-500), var(--primary-600));
+  color: white;
+}
+.level-badge .level-text {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.level-badge .level-name {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.overview-text {
+  flex: 1;
+}
+.overview-conclusion {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.overview-suggestion {
+  font-size: 14px;
+  color: var(--slate-600);
+  line-height: 1.7;
+}
+.overview-suggestion strong {
+  color: var(--cyan-500);
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .overview-content { flex-direction: column; align-items: flex-start; }
+  .level-badge { width: 100%; height: auto; padding: 12px; flex-direction: row; gap: 12px; }
+}
+
+/* ========== Radar Chart Section ========== */
+.radar-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.radar-container {
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+}
+#radarChart {
+  width: 100%;
+  height: auto;
+}
+.radar-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (min-width: 768px) {
+  .radar-legend {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+.legend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--slate-50);
+  transition: var(--transition);
+}
+.legend-item:hover {
+  background: var(--cyan-50);
+}
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan-500);
+}
+.legend-name {
+  font-size: 12px;
+  color: var(--slate-600);
+  font-weight: 500;
+}
+.legend-score {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-800);
+}
+
+/* ========== Product Type Section ========== */
+.product-type-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 768px) {
+  .product-type-grid {
+    grid-template-columns: 280px 1fr;
+  }
+}
+.product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.product-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--cyan-50);
+  color: var(--primary-700);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+.product-tag::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--cyan-500);
+}
+.product-desc {
+  font-size: 14px;
+  color: var(--slate-600);
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.strategy-card {
+  background: linear-gradient(135deg, var(--cyan-50), #F0FDFA);
+  border-left: 3px solid var(--cyan-500);
+  padding: 16px 20px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.strategy-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-700);
+  margin-bottom: 6px;
+}
+.strategy-content {
+  font-size: 14px;
+  color: var(--slate-700);
+  line-height: 1.7;
+}
+
+/* ========== Trust Path Section ========== */
+.path-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .path-visual {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+}
+.path-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--slate-200);
+  transition: var(--transition);
+  position: relative;
+}
+.path-step.active {
+  border-color: var(--cyan-500);
+  background: linear-gradient(135deg, white, var(--cyan-50));
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.15);
+}
+.path-step-num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--slate-100);
+  color: var(--slate-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  transition: var(--transition);
+}
+.path-step.active .path-step-num {
+  background: linear-gradient(135deg, var(--cyan-500), var(--primary-600));
+  color: white;
+}
+.path-step-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--slate-700);
+  margin-bottom: 2px;
+}
+.path-step.active .path-step-info h4 {
+  color: var(--primary-800);
+}
+.path-step-info p {
+  font-size: 12px;
+  color: var(--slate-400);
+}
+.path-arrow {
+  display: none;
+  width: 24px;
+  text-align: center;
+  color: var(--slate-300);
+  font-size: 20px;
+}
+@media (min-width: 768px) {
+  .path-arrow { display: block; }
+}
+.alt-paths {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--slate-200);
+}
+.alt-paths-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-600);
+  margin-bottom: 12px;
+}
+.alt-path-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.alt-path-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--slate-50);
+  border-radius: 100px;
+  font-size: 12px;
+  color: var(--slate-600);
+  border: 1px solid var(--slate-200);
+}
+.alt-path-item .icon {
+  color: var(--slate-400);
+  font-size: 10px;
+}
+
+/* ========== Bottlenecks Section ========== */
+.bottleneck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bottleneck-item {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--slate-100);
+  transition: var(--transition);
+}
+.bottleneck-item:hover {
+  box-shadow: var(--shadow-md);
+}
+.bottleneck-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.bottleneck-header:hover {
+  background: var(--slate-50);
+}
+.severity-badge {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+}
+.severity-high {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+}
+.severity-medium {
+  background: linear-gradient(135deg, #F97316, #EA580C);
+}
+.severity-low {
+  background: linear-gradient(135deg, #EAB308, #CA8A04);
+}
+.severity-rank {
+  font-size: 18px;
+  line-height: 1;
+}
+.severity-label {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+.bottleneck-title-area {
+  flex: 1;
+  min-width: 0;
+}
+.bottleneck-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 4px;
+}
+.bottleneck-meta {
+  font-size: 12px;
+  color: var(--slate-500);
+}
+.bottleneck-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--slate-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  color: var(--slate-500);
+  font-size: 12px;
+}
+.bottleneck-item.expanded .bottleneck-toggle {
+  transform: rotate(180deg);
+  background: var(--cyan-50);
+  color: var(--cyan-500);
+}
+.bottleneck-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bottleneck-item.expanded .bottleneck-body {
+  max-height: 500px;
+}
+.bottleneck-body-inner {
+  padding: 0 24px 24px;
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 640px) {
+  .bottleneck-body-inner {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.bottleneck-detail h5 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.bottleneck-detail.symptom h5 { color: var(--red-500); }
+.bottleneck-detail.impact h5 { color: var(--orange-500); }
+.bottleneck-detail.solution h5 { color: var(--green-500); }
+.bottleneck-detail p {
+  font-size: 13px;
+  color: var(--slate-600);
+  line-height: 1.7;
+}
+.bottleneck-detail ul {
+  list-style: none;
+  padding: 0;
+}
+.bottleneck-detail ul li {
+  font-size: 13px;
+  color: var(--slate-600);
+  line-height: 1.8;
+  padding-left: 16px;
+  position: relative;
+}
+.bottleneck-detail ul li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--slate-300);
+}
+
+/* ========== Modules Section ========== */
+.module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.module-item {
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--slate-100);
+  overflow: hidden;
+  transition: var(--transition);
+}
+.module-item:hover {
+  border-color: var(--slate-200);
+  box-shadow: var(--shadow-sm);
+}
+.module-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  cursor: pointer;
+}
+.module-priority {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-600), var(--cyan-500));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.module-info {
+  flex: 1;
+  min-width: 0;
+}
+.module-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 2px;
+}
+.module-desc-short {
+  font-size: 12px;
+  color: var(--slate-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.module-toggle {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--slate-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  color: var(--slate-500);
+  font-size: 10px;
+}
+.module-item.expanded .module-toggle {
+  transform: rotate(180deg);
+  background: var(--cyan-50);
+  color: var(--cyan-500);
+}
+.module-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.module-item.expanded .module-body {
+  max-height: 600px;
+}
+.module-body-inner {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--slate-100);
+  padding-top: 16px;
+}
+.module-detail-desc {
+  font-size: 13px;
+  color: var(--slate-600);
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.module-deliverables {
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+}
+.module-deliverables h5 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-700);
+  margin-bottom: 8px;
+}
+.module-deliverables ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.module-deliverables li {
+  font-size: 12px;
+  color: var(--slate-600);
+  background: white;
+  padding: 4px 10px;
+  border-radius: 100px;
+  border: 1px solid var(--slate-200);
+}
+
+/* ========== Pricing Section ========== */
+.pricing-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--slate-100);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pricing-tab {
+  flex: 1;
+  min-width: 70px;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--slate-600);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.pricing-tab.active {
+  background: white;
+  color: var(--primary-800);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+.pricing-content {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.pricing-content.active {
+  display: block;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.price-header {
+  text-align: center;
+  padding: 28px 20px;
+  background: linear-gradient(135deg, var(--primary-900), var(--primary-700));
+  color: white;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.price-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.price-amount {
+  position: relative;
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.price-amount .currency {
+  font-size: 20px;
+  font-weight: 500;
+  vertical-align: top;
+  margin-right: 4px;
+  opacity: 0.8;
+}
+.price-period {
+  position: relative;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.price-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+@media (min-width: 640px) {
+  .price-metrics { grid-template-columns: repeat(3, 1fr); }
+}
+.metric-card {
+  background: var(--slate-50);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--cyan-500);
+  margin-bottom: 4px;
+}
+.metric-label {
+  font-size: 12px;
+  color: var(--slate-500);
+}
+.price-modules h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 12px;
+}
+.price-module-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.price-module-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--cyan-50);
+  color: var(--primary-700);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+.price-module-tag::before {
+  content: '✓';
+  color: var(--cyan-500);
+  font-weight: 700;
+}
+
+/* ========== Timeline Section ========== */
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--cyan-500), var(--primary-500));
+  border-radius: 2px;
+}
+.timeline-item {
+  position: relative;
+  padding-bottom: 28px;
+}
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+.timeline-dot {
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid var(--cyan-500);
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.15);
+}
+.timeline-week {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cyan-500);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.timeline-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 8px;
+}
+.timeline-tasks {
+  margin-bottom: 10px;
+}
+.timeline-tasks li {
+  font-size: 13px;
+  color: var(--slate-600);
+  line-height: 1.8;
+  list-style: none;
+  padding-left: 16px;
+  position: relative;
+}
+.timeline-tasks li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--cyan-500);
+}
+.timeline-deliverable {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--slate-50);
+  border-radius: 100px;
+  font-size: 12px;
+  color: var(--slate-500);
+  border: 1px solid var(--slate-200);
+}
+
+/* ========== CTA Section ========== */
+.cta-section {
+  background: linear-gradient(135deg, var(--primary-900) 0%, var(--primary-700) 100%);
+  padding: 60px 0;
+  position: relative;
+  overflow: hidden;
+}
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.cta-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.cta-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 12px;
+}
+.cta-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 40px;
+  background: linear-gradient(135deg, var(--cyan-500), #0891B2);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+}
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(6, 182, 212, 0.5);
+}
+.cta-button:active {
+  transform: translateY(0);
+}
+.cta-privacy {
+  margin-top: 20px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ========== Footer ========== */
+.footer {
+  background: var(--primary-900);
+  padding: 24px 0;
+  text-align: center;
+}
+.footer-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.footer-brand {
+  color: var(--cyan-400);
+  font-weight: 500;
+}
+
+/* ========== Scroll Animations ========== */
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ========== Utility ========== */
+.text-gradient {
+  background: linear-gradient(135deg, var(--cyan-500), var(--primary-600));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.divider {
+  height: 1px;
+  background: var(--slate-200);
+  margin: 20px 0;
+}
+
+/* ========== Share Modal ========== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active {
+  display: flex;
+}
+.modal-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  animation: modalIn 0.3s ease;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  background: var(--cyan-50);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-800);
+  margin-bottom: 8px;
+}
+.modal-desc {
+  font-size: 14px;
+  color: var(--slate-500);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+}
+.modal-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+}
+.modal-btn.primary {
+  background: linear-gradient(135deg, var(--cyan-500), #0891B2);
+  color: white;
+}
+.modal-btn.secondary {
+  background: var(--slate-100);
+  color: var(--slate-600);
+}
+.modal-btn:hover {
+  transform: translateY(-1px);
+}
+</style>
+</head>
+<body>
+
+<!-- ========== HERO ========== -->
+<section class="hero">
+  <div class="container hero-content">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      <span>健康行业 AI 内容增长系统 v2.0</span>
+    </div>
+    <h1 class="hero-title">AI内容增长诊断报告</h1>
+    <div class="hero-company" id="companyName">康卫士 · 清幽益生菌</div>
+    <div class="hero-date" id="reportDate">诊断日期：2026年7月9日</div>
+    <div class="hero-score">
+      <div class="score-ring-wrapper">
+        <!-- 外层刻度环 -->
+        <svg class="score-ticks-svg" viewBox="0 0 220 220" fill="none">
+          <g stroke="rgba(255,255,255,0.12)" stroke-width="1">
+            <line x1="110" y1="14" x2="110" y2="22" />
+            <line x1="110" y1="198" x2="110" y2="206" />
+            <line x1="14" y1="110" x2="22" y2="110" />
+            <line x1="198" y1="110" x2="206" y2="110" />
+          </g>
+          <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(30 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(60 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(120 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(150 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(210 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(240 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(300 110 110)"/>
+            <line x1="110" y1="16" x2="110" y2="20" transform="rotate(330 110 110)"/>
+          </g>
+        </svg>
+        <!-- 旋转装饰环 -->
+        <div class="score-rotate-ring"></div>
+        <!-- 主进度环 -->
+        <svg class="score-main-svg" viewBox="0 0 172 172">
+          <defs>
+            <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#67E8F9"/>
+              <stop offset="50%" style="stop-color:#22D3EE"/>
+              <stop offset="100%" style="stop-color:#3B82F6"/>
+            </linearGradient>
+          </defs>
+          <circle class="score-ring-bg" cx="86" cy="86" r="72"/>
+          <circle class="score-ring-progress" id="scoreRing" cx="86" cy="86" r="72"/>
+          <!-- 进度端点发光点（JS定位） -->
+          <circle class="score-dot" id="scoreDot" cx="86" cy="14" r="3.5"/>
+        </svg>
+        <!-- 玻璃态内面板 -->
+        <div class="score-glass-panel">
+          <div class="score-label">TOTAL SCORE</div>
+          <div class="score-number-group">
+            <span class="score-number" id="totalScore">0</span>
+            <span class="score-unit">分</span>
+          </div>
+        </div>
+      </div>
+      <!-- 等级徽章（圆环外） -->
+      <div class="score-level-outside">
+        <span class="sparkle">✦</span>
+        <span id="scoreLevel">内容增长·成长期</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== OVERVIEW ========== -->
+<section class="section" style="padding-top: 0;">
+  <div class="container">
+    <!-- ========== COMPANY RESEARCH ========== -->
+<section class="section research-section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">00 / 企业背调</span>
+      <h2 class="section-title">企业真实信息核查</h2>
+      <p class="section-desc">基于公开网络信息的企业背景调查，让诊断更客观</p>
+    </div>
+
+    <!-- 可信度指标 -->
+    <div class="confidence-bar fade-in">
+      <div class="confidence-icon">🔍</div>
+      <div class="confidence-info">
+        <div class="confidence-label">背调可信度</div>
+        <div class="confidence-track">
+          <div class="confidence-fill" id="confidenceFill"></div>
+        </div>
+      </div>
+      <div class="confidence-value"><span id="confidenceNum">0</span><small>/100</small></div>
+    </div>
+
+    <!-- 四张信息卡 -->
+    <div class="research-cards">
+      <!-- 公司基本信息 -->
+      <div class="research-card fade-in">
+        <div class="research-card-header">
+          <div class="research-card-icon profile">🏢</div>
+          <div class="research-card-title">公司基本信息</div>
+          <span class="research-card-tag info">已核实</span>
+        </div>
+        <div class="research-card-body">
+          <div class="research-info-list">
+            <div class="research-info-item">
+              <span class="research-info-label">成立时间</span>
+              <span class="research-info-value verified" id="researchFounded">2015年</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">注册资本</span>
+              <span class="research-info-value" id="researchCapital">1000万元</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">人员规模</span>
+              <span class="research-info-value" id="researchEmployees">50-100人</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">所在地区</span>
+              <span class="research-info-value" id="researchLocation">杭州市余杭区</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">公司类型</span>
+              <span class="research-info-value">有限责任公司</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">信息来源</span>
+              <span class="research-info-value" style="font-size: 11px; color: var(--slate-400);">企查查 · 天眼查 · 官网</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 产品真实情况 -->
+      <div class="research-card fade-in">
+        <div class="research-card-header">
+          <div class="research-card-icon product">📦</div>
+          <div class="research-card-title">产品真实情况</div>
+          <span class="research-card-tag success">电商在售</span>
+        </div>
+        <div class="research-card-body">
+          <div class="research-info-list">
+            <div class="research-info-item">
+              <span class="research-info-label">主营产品</span>
+              <span class="research-info-value" id="researchMainProduct">清幽益生菌</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">SKU数量</span>
+              <span class="research-info-value" id="researchSku">约80个</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">价格带</span>
+              <span class="research-info-value" id="researchPrice">50-300元</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">销售平台</span>
+              <span class="research-info-value" style="text-align: right; line-height: 1.8;">天猫旗舰店<br/>京东自营<br/>抖音小店</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">店铺评分</span>
+              <span class="research-info-value verified">4.6 / 5.0</span>
+            </div>
+            <div class="research-info-item">
+              <span class="research-info-label">销量估算</span>
+              <span class="research-info-value" id="researchSales">月销2000-3000万</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 内容平台表现 -->
+      <div class="research-card fade-in">
+        <div class="research-card-header">
+          <div class="research-card-icon content">📱</div>
+          <div class="research-card-title">内容平台表现</div>
+          <span class="research-card-tag info" id="researchContentLevel">活跃</span>
+        </div>
+        <div class="research-card-body">
+          <div class="platform-list">
+            <div class="platform-item active">
+              <div class="platform-icon douyin">抖</div>
+              <div class="platform-info">
+                <div class="platform-name">抖音</div>
+                <div class="platform-meta">10-50万粉 · 日更</div>
+              </div>
+              <span class="platform-status active">已认证</span>
+            </div>
+            <div class="platform-item active">
+              <div class="platform-icon xiaohongshu">红</div>
+              <div class="platform-info">
+                <div class="platform-name">小红书</div>
+                <div class="platform-meta">5-20万粉 · 周更3-5次</div>
+              </div>
+              <span class="platform-status active">已认证</span>
+            </div>
+            <div class="platform-item active">
+              <div class="platform-icon wechat">微</div>
+              <div class="platform-info">
+                <div class="platform-name">微信公众号</div>
+                <div class="platform-meta">3-15万粉 · 周更2-3次</div>
+              </div>
+              <span class="platform-status active">已认证</span>
+            </div>
+            <div class="platform-item active">
+              <div class="platform-icon video">视</div>
+              <div class="platform-info">
+                <div class="platform-name">视频号</div>
+                <div class="platform-meta">5-20万粉 · 日更</div>
+              </div>
+              <span class="platform-status active">已认证</span>
+            </div>
+            <div class="platform-item">
+              <div class="platform-icon kuaishou">快</div>
+              <div class="platform-info">
+                <div class="platform-name">快手</div>
+                <div class="platform-meta">未发现官方账号</div>
+              </div>
+              <span class="platform-status inactive">未布局</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 口碑与评价 -->
+      <div class="research-card fade-in">
+        <div class="research-card-header">
+          <div class="research-card-icon reputation">⭐</div>
+          <div class="research-card-title">口碑与行业评价</div>
+          <span class="research-card-tag warning" id="researchReputationTag">中性</span>
+        </div>
+        <div class="research-card-body">
+          <div class="reputation-score-row">
+            <div class="reputation-score-circle">
+              <div class="reputation-score-num" id="reputationScore">72</div>
+              <div class="reputation-score-label">口碑分</div>
+            </div>
+            <div class="reputation-summary">
+              <div class="reputation-summary-title">整体评价：中等偏上</div>
+              <div class="reputation-summary-desc">
+                品牌有一定知名度，产品性价比获认可，但效果评价两极分化，
+                客服响应速度有待提升。
+              </div>
+            </div>
+          </div>
+          <div class="reputation-tags">
+            <div>
+              <div class="reputation-tag-label">👍 好评关键词</div>
+              <div class="reputation-tag-group">
+                <span class="reputation-tag positive">性价比高</span>
+                <span class="reputation-tag positive">包装精美</span>
+                <span class="reputation-tag positive">发货快</span>
+              </div>
+            </div>
+            <div>
+              <div class="reputation-tag-label">👎 差评关键词</div>
+              <div class="reputation-tag-group">
+                <span class="reputation-tag negative">效果不明显</span>
+                <span class="reputation-tag negative">客服慢</span>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--slate-100);">
+            <div class="research-info-item">
+              <span class="research-info-label">投诉估算</span>
+              <span class="research-info-value">月均50-100条</span>
+            </div>
+            <div class="research-info-item" style="margin-top: 8px;">
+              <span class="research-info-label">负面新闻</span>
+              <span class="research-info-value" style="color: var(--green-500);">未发现重大负面</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 差异提示 -->
+    <div class="diff-alert fade-in" id="diffAlert">
+      <div class="diff-alert-header">
+        <div class="diff-alert-icon">⚠️</div>
+        <div>
+          <div class="diff-alert-title">与口述信息差异提示</div>
+          <div class="diff-alert-subtitle">共发现 <span id="diffCount">2</span> 处差异，其中重大差异 <span id="diffMajorCount" style="color: var(--red-500); font-weight: 600;">0</span> 处</div>
+        </div>
+      </div>
+      <div class="diff-list" id="diffList">
+        <div class="diff-item">
+          <span class="diff-type-badge minor">轻微</span>
+          <div class="diff-content">
+            <strong>营收规模：</strong>口述年营收约5000万，公开数据估算月销2000-3000万（年约2.5-3.5亿），
+            可能存在统计口径差异，建议进一步核实实际营收构成。
+          </div>
+        </div>
+        <div class="diff-item">
+          <span class="diff-type-badge minor">轻微</span>
+          <div class="diff-content">
+            <strong>内容团队：</strong>口述3人内容团队，但公开信息显示在4个平台有活跃账号且更新频率较高，
+            推测实际内容产能可能超出3人规模，或有外部代运营支持。
+          </div>
+        </div>
+        <div class="diff-item">
+          <span class="diff-type-badge consistent">一致</span>
+          <div class="diff-content">
+            <strong>成立时间 / 人员规模 / 口碑情况</strong>与公开信息基本吻合，信息可信度较高。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== OVERVIEW ========== -->
+<section class="section" style="padding-top: 24px;">
+  <div class="container">
+    <div class="card overview-card fade-in">
+      <div class="card-body overview-content">
+        <div class="level-badge">
+          <span class="level-text">成熟度</span>
+          <span class="level-name" id="maturityLevel">成长</span>
+        </div>
+        <div class="overview-text">
+          <div class="overview-conclusion" id="conclusionText">
+            品牌已建立基础产品认知，但内容生产效率不足，信任构建体系薄弱，转化链路存在明显断层。
+          </div>
+          <div class="overview-suggestion" id="suggestionText">
+            建议优先落地<strong>「内容生产提效」</strong>和<strong>「信任体系构建」</strong>两大模块，30天内可实现内容产能提升3倍、咨询转化率提升40%以上。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== RADAR CHART ========== -->
+<section class="section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">01 / 能力评估</span>
+      <h2 class="section-title">五维能力雷达图</h2>
+      <p class="section-desc">从五大核心维度全面评估内容增长成熟度</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-body">
+        <div class="radar-wrapper">
+          <div class="radar-container">
+            <svg id="radarChart" viewBox="0 0 400 400">
+              <!-- Grid -->
+              <g id="radarGrid" stroke="#E2E8F0" stroke-width="1" fill="none">
+                <polygon points="200,60 321,122 321,278 200,340 79,278 79,122"/>
+                <polygon points="200,95 291,142 291,258 200,305 109,258 109,142"/>
+                <polygon points="200,130 261,162 261,238 200,270 139,238 139,162"/>
+                <polygon points="200,165 231,182 231,218 200,235 169,218 169,182"/>
+              </g>
+              <!-- Axes -->
+              <g stroke="#E2E8F0" stroke-width="1">
+                <line x1="200" y1="60" x2="200" y2="340"/>
+                <line x1="79" y1="122" x2="321" y2="278"/>
+                <line x1="79" y1="278" x2="321" y2="122"/>
+              </g>
+              <!-- Data polygon -->
+              <polygon id="radarData" 
+                points="200,200 200,200 200,200 200,200 200,200"
+                fill="rgba(6, 182, 212, 0.2)"
+                stroke="#06B6D4"
+                stroke-width="2"
+                stroke-linejoin="round"/>
+              <!-- Data points -->
+              <g id="radarPoints">
+                <circle cx="200" cy="200" r="4" fill="#06B6D4" class="radar-point" data-index="0"/>
+                <circle cx="200" cy="200" r="4" fill="#06B6D4" class="radar-point" data-index="1"/>
+                <circle cx="200" cy="200" r="4" fill="#06B6D4" class="radar-point" data-index="2"/>
+                <circle cx="200" cy="200" r="4" fill="#06B6D4" class="radar-point" data-index="3"/>
+                <circle cx="200" cy="200" r="4" fill="#06B6D4" class="radar-point" data-index="4"/>
+              </g>
+              <!-- Labels -->
+              <g font-size="12" fill="#475569" text-anchor="middle" font-weight="500">
+                <text x="200" y="45">产品表达</text>
+                <text x="345" y="122">内容生产</text>
+                <text x="345" y="288">信任构建</text>
+                <text x="200" y="365">转化体系</text>
+                <text x="55" y="288">团队执行</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="radar-legend" id="radarLegend">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PRODUCT TYPE ========== -->
+<section class="section" style="background: white;">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">02 / 产品画像</span>
+      <h2 class="section-title">产品类型识别</h2>
+      <p class="section-desc">精准定位产品属性，匹配最优内容策略</p>
+    </div>
+    <div class="fade-in">
+      <div class="product-type-grid">
+        <div>
+          <div class="product-tags" id="productTags">
+            <span class="product-tag">益生菌类</span>
+            <span class="product-tag">肠胃健康</span>
+            <span class="product-tag">复购型</span>
+            <span class="product-tag">中客单价</span>
+          </div>
+        </div>
+        <div>
+          <p class="product-desc" id="productDesc">
+            清幽益生菌是一款针对幽门螺杆菌阳性人群的功能性益生菌产品，客单价298元/盒，
+            核心购买人群为35-55岁有胃部健康困扰的中产人群，购买决策周期约7-14天，
+            需要专业背书和用户真实反馈建立信任。
+          </p>
+          <div class="strategy-card">
+            <div class="strategy-title">💡 内容策略方向</div>
+            <div class="strategy-content" id="strategyDirection">
+              以「专业科普+真实案例」为核心内容路径，通过医生科普建立权威信任，
+              用户真实反馈强化效果感知，配合限时促销机制缩短决策链路。
+              重点布局视频号+私域社群，通过内容矩阵实现从认知到转化的闭环。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== TRUST PATH ========== -->
+<section class="section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">03 / 成交路径</span>
+      <h2 class="section-title">信任成交路径</h2>
+      <p class="section-desc">用户从认知到购买的核心转化路径</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-body">
+        <div class="path-visual" id="trustPath">
+          <div class="path-step active">
+            <div class="path-step-num">1</div>
+            <div class="path-step-info">
+              <h4>内容触达</h4>
+              <p>短视频/图文种草</p>
+            </div>
+          </div>
+          <div class="path-arrow">→</div>
+          <div class="path-step active">
+            <div class="path-step-num">2</div>
+            <div class="path-step-info">
+              <h4>信任建立</h4>
+              <p>专业背书+用户反馈</p>
+            </div>
+          </div>
+          <div class="path-arrow">→</div>
+          <div class="path-step active">
+            <div class="path-step-num">3</div>
+            <div class="path-step-info">
+              <h4>价值感知</h4>
+              <p>效果预期+价格锚定</p>
+            </div>
+          </div>
+          <div class="path-arrow">→</div>
+          <div class="path-step">
+            <div class="path-step-num">4</div>
+            <div class="path-step-info">
+              <h4>促单成交</h4>
+              <p>限时优惠+咨询转化</p>
+            </div>
+          </div>
+        </div>
+        <div class="alt-paths">
+          <div class="alt-paths-title">🔄 备选转化路径</div>
+          <div class="alt-path-list" id="altPaths">
+            <span class="alt-path-item"><span class="icon">●</span> 直播带货直购</span>
+            <span class="alt-path-item"><span class="icon">●</span> 私域社群团购</span>
+            <span class="alt-path-item"><span class="icon">●</span> KOC推荐分销</span>
+            <span class="alt-path-item"><span class="icon">●</span> 医生IP引流</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== BOTTLENECKS ========== -->
+<section class="section" style="background: white;">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">04 / 核心瓶颈</span>
+      <h2 class="section-title">核心瓶颈 Top 3</h2>
+      <p class="section-desc">点击展开查看详细分析与解决方向</p>
+    </div>
+    <div class="bottleneck-list" id="bottleneckList">
+      <!-- Bottleneck 1 -->
+      <div class="bottleneck-item fade-in">
+        <div class="bottleneck-header" onclick="toggleBottleneck(this)">
+          <div class="severity-badge severity-high">
+            <span class="severity-rank">1</span>
+            <span class="severity-label">严重</span>
+          </div>
+          <div class="bottleneck-title-area">
+            <div class="bottleneck-title">内容产能严重不足</div>
+            <div class="bottleneck-meta">产出速度跟不上投放节奏，素材同质化严重</div>
+          </div>
+          <div class="bottleneck-toggle">▼</div>
+        </div>
+        <div class="bottleneck-body">
+          <div class="bottleneck-body-inner">
+            <div class="bottleneck-detail symptom">
+              <h5>症状表现</h5>
+              <p>当前每周仅能产出5-8条短视频，投放需求量20条+/周，缺口超过60%。内容以产品介绍为主，缺乏场景化、故事化表达。</p>
+            </div>
+            <div class="bottleneck-detail impact">
+              <h5>业务影响</h5>
+              <p>投放素材快速疲劳，单条素材生命周期缩短至3-5天，ROI下降25%。新创意供给不足导致无法有效测试新人群新卖点。</p>
+            </div>
+            <div class="bottleneck-detail solution">
+              <h5>解决方向</h5>
+              <ul>
+                <li>搭建AI内容生产流水线</li>
+                <li>建立素材模板库</li>
+                <li>批量生产+精选投放模式</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottleneck 2 -->
+      <div class="bottleneck-item fade-in">
+        <div class="bottleneck-header" onclick="toggleBottleneck(this)">
+          <div class="severity-badge severity-medium">
+            <span class="severity-rank">2</span>
+            <span class="severity-label">中等</span>
+          </div>
+          <div class="bottleneck-title-area">
+            <div class="bottleneck-title">信任构建体系薄弱</div>
+            <div class="bottleneck-meta">缺乏专业背书，用户真实反馈内容不足</div>
+          </div>
+          <div class="bottleneck-toggle">▼</div>
+        </div>
+        <div class="bottleneck-body">
+          <div class="bottleneck-body-inner">
+            <div class="bottleneck-detail symptom">
+              <h5>症状表现</h5>
+              <p>产品内容多为自说自话，医生/专家背书内容缺失，真实用户案例稀少。用户评论区常见"真的有效吗？"等信任质疑。</p>
+            </div>
+            <div class="bottleneck-detail impact">
+              <h5>业务影响</h5>
+              <p>加微后咨询转化率仅8%（行业均值15%），用户决策周期长达14天，大量流量在信任环节流失。</p>
+            </div>
+            <div class="bottleneck-detail solution">
+              <h5>解决方向</h5>
+              <ul>
+                <li>打造医生IP背书矩阵</li>
+                <li>搭建用户案例内容体系</li>
+                <li>设计信任资产SOP</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottleneck 3 -->
+      <div class="bottleneck-item fade-in">
+        <div class="bottleneck-header" onclick="toggleBottleneck(this)">
+          <div class="severity-badge severity-low">
+            <span class="severity-rank">3</span>
+            <span class="severity-label">一般</span>
+          </div>
+          <div class="bottleneck-title-area">
+            <div class="bottleneck-title">转化链路存在断层</div>
+            <div class="bottleneck-meta">从内容到成交的关键环节承接不足</div>
+          </div>
+          <div class="bottleneck-toggle">▼</div>
+        </div>
+        <div class="bottleneck-body">
+          <div class="bottleneck-body-inner">
+            <div class="bottleneck-detail symptom">
+              <h5>症状表现</h5>
+              <p>内容引流后缺乏系统化承接，私聊话术不统一，促销活动缺乏节奏设计。用户加微后7天内成交率低。</p>
+            </div>
+            <div class="bottleneck-detail impact">
+              <h5>业务影响</h5>
+              <p>获客成本高但转化率低，CAC/客单价比值达1:2.5（健康值1:4以上），流量浪费严重，整体ROI难以提升。</p>
+            </div>
+            <div class="bottleneck-detail solution">
+              <h5>解决方向</h5>
+              <ul>
+                <li>标准化转化SOP</li>
+                <li>设计7天培育旅程</li>
+                <li>建立促销节奏体系</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== MODULES ========== -->
+<section class="section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">05 / 解决方案</span>
+      <h2 class="section-title">7大模块推荐</h2>
+      <p class="section-desc">按优先级排序，点击展开查看详情</p>
+    </div>
+    <div class="module-list" id="moduleList">
+      <!-- Module 1 -->
+      <div class="module-item fade-in expanded">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">1</div>
+          <div class="module-info">
+            <div class="module-name">AI内容生产流水线</div>
+            <div class="module-desc-short">搭建自动化内容生产体系，产能提升3-5倍</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              基于AI大模型搭建从选题→脚本→拍摄→剪辑→发布的全链路内容生产流水线。
+              建立产品卖点库、场景库、话术库，通过模板化+AI辅助实现批量产出。
+              配合数据反馈机制，快速迭代优化内容方向。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>内容选题库（100+选题）</li>
+                <li>脚本模板20套</li>
+                <li>AI生产SOP手册</li>
+                <li>周产50条内容能力</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 2 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">2</div>
+          <div class="module-info">
+            <div class="module-name">信任体系构建</div>
+            <div class="module-desc-short">多维度信任资产建设，消除用户决策疑虑</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              从专业背书、用户反馈、品牌资质、效果验证四个维度构建系统化信任内容体系。
+              打造医生科普IP矩阵，设计用户案例生产机制，建立可视化信任资产库。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>医生IP打造方案</li>
+                <li>用户案例SOP</li>
+                <li>信任资产内容库</li>
+                <li>专业背书素材包</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 3 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">3</div>
+          <div class="module-info">
+            <div class="module-name">产品表达升级</div>
+            <div class="module-desc-short">重新定义产品价值，打造差异化卖点体系</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              深度挖掘产品核心价值，从用户痛点出发重构产品表达逻辑。
+              建立多层次卖点体系（功能卖点/情感卖点/社交卖点），设计标准化话术库。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>产品价值画布</li>
+                <li>卖点体系矩阵</li>
+                <li>标准话术库</li>
+                <li>竞品差异化分析</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 4 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">4</div>
+          <div class="module-info">
+            <div class="module-name">转化体系优化</div>
+            <div class="module-desc-short">全链路转化漏斗优化，提升成交效率</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              梳理从内容引流到最终成交的全链路转化漏斗，识别关键流失节点并优化。
+              设计标准化私聊SOP、朋友圈培育体系、促销节奏，提升整体转化率。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>转化漏斗诊断报告</li>
+                <li>私聊SOP话术库</li>
+                <li>7天培育旅程设计</li>
+                <li>促销活动方案</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 5 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">5</div>
+          <div class="module-info">
+            <div class="module-name">内容矩阵布局</div>
+            <div class="module-desc-short">多平台矩阵运营，扩大品牌声量</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              基于产品属性和目标人群，规划最优平台矩阵。
+              针对不同平台特性定制内容策略，建立"一鱼多吃"的内容分发机制，
+              实现品牌声量和获客效率的双提升。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>平台矩阵规划</li>
+                <li>各平台内容策略</li>
+                <li>分发效率手册</li>
+                <li>账号运营SOP</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 6 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">6</div>
+          <div class="module-info">
+            <div class="module-name">私域增长体系</div>
+            <div class="module-desc-short">搭建私域运营体系，提升用户终身价值</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              搭建从引流→培育→转化→复购→转介绍的私域全链路运营体系。
+              设计用户分层机制、社群运营SOP、会员权益体系，
+              最大化单用户价值，降低整体获客成本。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>私域体系蓝图</li>
+                <li>社群运营SOP</li>
+                <li>会员权益设计</li>
+                <li>转介绍机制</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 7 -->
+      <div class="module-item fade-in">
+        <div class="module-header" onclick="toggleModule(this)">
+          <div class="module-priority">7</div>
+          <div class="module-info">
+            <div class="module-name">团队能力建设</div>
+            <div class="module-desc-short">赋能团队，建立可持续的内容增长能力</div>
+          </div>
+          <div class="module-toggle">▼</div>
+        </div>
+        <div class="module-body">
+          <div class="module-body-inner">
+            <p class="module-detail-desc">
+              通过系统化培训和实战带教，提升团队内容生产、数据分析、用户运营能力。
+              建立内容团队工作流程和绩效考核体系，确保增长能力可持续。
+            </p>
+            <div class="module-deliverables">
+              <h5>📦 交付物</h5>
+              <ul>
+                <li>团队培训课程</li>
+                <li>工作流程手册</li>
+                <li>绩效考核体系</li>
+                <li>人才画像标准</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PRICING ========== -->
+<section class="section" style="background: white;">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">06 / 合作方案</span>
+      <h2 class="section-title">报价与 ROI 预测</h2>
+      <p class="section-desc">多档位灵活选择，按需定制服务方案</p>
+    </div>
+    <div class="fade-in">
+      <div class="pricing-tabs" id="pricingTabs">
+        <div class="pricing-tab active" data-tab="basic">基础版</div>
+        <div class="pricing-tab" data-tab="standard">标准版</div>
+        <div class="pricing-tab" data-tab="advanced">进阶版</div>
+        <div class="pricing-tab" data-tab="vip">陪跑版</div>
+      </div>
+
+      <!-- Basic -->
+      <div class="pricing-content active" id="tab-basic">
+        <div class="price-header">
+          <div class="price-amount"><span class="currency">¥</span><span class="price-num" data-target="9800">0</span></div>
+          <div class="price-period">起 / 一次性服务费</div>
+        </div>
+        <div class="price-metrics">
+          <div class="metric-card">
+            <div class="metric-value">3个</div>
+            <div class="metric-label">覆盖模块</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">2x</div>
+            <div class="metric-label">预期ROI</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">90天</div>
+            <div class="metric-label">预计回本</div>
+          </div>
+        </div>
+        <div class="price-modules">
+          <h4>📋 包含模块</h4>
+          <div class="price-module-list">
+            <span class="price-module-tag">产品表达升级</span>
+            <span class="price-module-tag">AI内容生产流水线</span>
+            <span class="price-module-tag">内容矩阵布局</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard -->
+      <div class="pricing-content" id="tab-standard">
+        <div class="price-header">
+          <div class="price-amount"><span class="currency">¥</span><span class="price-num" data-target="19800">0</span></div>
+          <div class="price-period">起 / 一次性服务费</div>
+        </div>
+        <div class="price-metrics">
+          <div class="metric-card">
+            <div class="metric-value">5个</div>
+            <div class="metric-label">覆盖模块</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">3.5x</div>
+            <div class="metric-label">预期ROI</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">60天</div>
+            <div class="metric-label">预计回本</div>
+          </div>
+        </div>
+        <div class="price-modules">
+          <h4>📋 包含模块</h4>
+          <div class="price-module-list">
+            <span class="price-module-tag">产品表达升级</span>
+            <span class="price-module-tag">AI内容生产流水线</span>
+            <span class="price-module-tag">信任体系构建</span>
+            <span class="price-module-tag">转化体系优化</span>
+            <span class="price-module-tag">内容矩阵布局</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced -->
+      <div class="pricing-content" id="tab-advanced">
+        <div class="price-header">
+          <div class="price-amount"><span class="currency">¥</span><span class="price-num" data-target="39800">0</span></div>
+          <div class="price-period">起 / 一次性服务费</div>
+        </div>
+        <div class="price-metrics">
+          <div class="metric-card">
+            <div class="metric-value">7个</div>
+            <div class="metric-label">覆盖模块</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">5x</div>
+            <div class="metric-label">预期ROI</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">45天</div>
+            <div class="metric-label">预计回本</div>
+          </div>
+        </div>
+        <div class="price-modules">
+          <h4>📋 包含模块</h4>
+          <div class="price-module-list">
+            <span class="price-module-tag">全部7大模块</span>
+            <span class="price-module-tag">1v1顾问咨询</span>
+            <span class="price-module-tag">月度复盘优化</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIP -->
+      <div class="pricing-content" id="tab-vip">
+        <div class="price-header">
+          <div class="price-amount"><span class="currency">¥</span><span class="price-num" data-target="68000">0</span></div>
+          <div class="price-period">起 / 季度陪跑</div>
+        </div>
+        <div class="price-metrics">
+          <div class="metric-card">
+            <div class="metric-value">全模块</div>
+            <div class="metric-label">深度陪跑</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">8x+</div>
+            <div class="metric-label">预期ROI</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">30天</div>
+            <div class="metric-label">预计回本</div>
+          </div>
+        </div>
+        <div class="price-modules">
+          <h4>📋 包含服务</h4>
+          <div class="price-module-list">
+            <span class="price-module-tag">全部7大模块</span>
+            <span class="price-module-tag">每周1v1深度复盘</span>
+            <span class="price-module-tag">团队驻场培训</span>
+            <span class="price-module-tag">数据看板搭建</span>
+            <span class="price-module-tag">专属增长顾问</span>
+            <span class="price-module-tag">季度战略规划</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 30-DAY PLAN ========== -->
+<section class="section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">07 / 执行落地</span>
+      <h2 class="section-title">30天执行计划</h2>
+      <p class="section-desc">分阶段落地，每周可见阶段性成果</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-body">
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-week">第 1 周</div>
+            <h3 class="timeline-title">诊断与基建</h3>
+            <ul class="timeline-tasks">
+              <li>完成深度诊断与数据基线建立</li>
+              <li>产品价值梳理与卖点体系搭建</li>
+              <li>AI内容生产工具部署与培训</li>
+              <li>内容选题库建立（50+选题）</li>
+            </ul>
+            <span class="timeline-deliverable">📦 交付：诊断报告 + 卖点体系 + 选题库</span>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-week">第 2 周</div>
+            <h3 class="timeline-title">内容放量</h3>
+            <ul class="timeline-tasks">
+              <li>AI内容流水线跑通，产能提升3倍</li>
+              <li>首批信任内容素材生产</li>
+              <li>多平台矩阵账号启动</li>
+              <li>内容数据监测体系建立</li>
+            </ul>
+            <span class="timeline-deliverable">📦 交付：内容模板库 + 矩阵账号 + 数据看板</span>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-week">第 3 周</div>
+            <h3 class="timeline-title">转化优化</h3>
+            <ul class="timeline-tasks">
+              <li>转化漏斗诊断与关键节点优化</li>
+              <li>私聊SOP与朋友圈培育体系上线</li>
+              <li>信任内容全面嵌入转化链路</li>
+              <li>第一轮A/B测试启动</li>
+            </ul>
+            <span class="timeline-deliverable">📦 交付：转化SOP + 培育体系 + A/B测试报告</span>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-week">第 4 周</div>
+            <h3 class="timeline-title">体系成型</h3>
+            <ul class="timeline-tasks">
+              <li>全链路数据复盘与策略迭代</li>
+              <li>团队能力培训与SOP固化</li>
+              <li>私域运营体系初步搭建</li>
+              <li>月度总结与下阶段规划</li>
+            </ul>
+            <span class="timeline-deliverable">📦 交付：月度报告 + 运营手册 + 增长规划</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA ========== -->
+<section class="cta-section">
+  <div class="container cta-content">
+    <h2 class="cta-title">准备好开启AI内容增长了吗？</h2>
+    <p class="cta-subtitle">分享给范总，预约30分钟一对一深度诊断<br/>定制专属您企业的内容增长方案</p>
+    <button class="cta-button" onclick="openShareModal()">
+      <span>📤</span>
+      <span>分享给范总，预约一对一诊断</span>
+    </button>
+    <div class="cta-privacy">
+      <span>🔒</span>
+      <span>您的信息不会自动分享，点击分享才会发送</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="footer">
+  <div class="container">
+    <p class="footer-text">
+      由 <span class="footer-brand">健康行业AI内容增长系统 v2.0</span> 生成 · 仅供诊断参考
+    </p>
+  </div>
+</footer>
+
+<!-- ========== SHARE MODAL ========== -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-card">
+    <div class="modal-icon">📤</div>
+    <h3 class="modal-title">分享给范总</h3>
+    <p class="modal-desc">将这份诊断报告分享给范总，预约30分钟一对一深度诊断，定制专属内容增长方案。</p>
+    <div class="modal-buttons">
+      <button class="modal-btn secondary" onclick="closeShareModal()">取消</button>
+      <button class="modal-btn primary" onclick="confirmShare()">确认分享</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const reportData = {
+  company: '康卫士 · 清幽益生菌',
+  date: '2026年7月9日',
+  totalScore: 62,
+  scoreLevel: '内容增长·成长期',
+  maturityLevel: '成长',
+  conclusion: '品牌已建立基础产品认知，但内容生产效率不足，信任构建体系薄弱，转化链路存在明显断层。',
+  suggestion: '建议优先落地<strong>「内容生产提效」</strong>和<strong>「信任体系构建」</strong>两大模块，30天内可实现内容产能提升3倍、咨询转化率提升40%以上。',
+  radar: [
+    { name: '产品表达', score: 68 },
+    { name: '内容生产', score: 45 },
+    { name: '信任构建', score: 52 },
+    { name: '转化体系', score: 58 },
+    { name: '团队执行', score: 70 }
+  ],
+  productTags: ['益生菌类', '肠胃健康', '复购型', '中客单价'],
+  productDesc: '清幽益生菌是一款针对幽门螺杆菌阳性人群的功能性益生菌产品，客单价298元/盒，核心购买人群为35-55岁有胃部健康困扰的中产人群，购买决策周期约7-14天，需要专业背书和用户真实反馈建立信任。',
+  strategyDirection: '以「专业科普+真实案例」为核心内容路径，通过医生科普建立权威信任，用户真实反馈强化效果感知，配合限时促销机制缩短决策链路。重点布局视频号+私域社群，通过内容矩阵实现从认知到转化的闭环。',
+  // 企业背调数据
+  companyResearch: {
+    confidenceScore: 72,
+    researchMode: 'demo',
+    profile: {
+      name: '康卫士生物科技有限公司',
+      founded: '2015年',
+      capital: '1000万元',
+      employees: '50-100人',
+      location: '杭州市余杭区',
+      type: '有限责任公司',
+    },
+    product: {
+      main: '清幽益生菌',
+      sku: '约80个',
+      price: '50-300元',
+      sales: '月销2000-3000万',
+      storeRating: '4.6/5.0',
+    },
+    content: {
+      level: '活跃',
+      activeCount: 4,
+      platforms: [
+        { name: '抖音', fans: '10-50万', freq: '日更', active: true, icon: '抖', cls: 'douyin' },
+        { name: '小红书', fans: '5-20万', freq: '周更3-5次', active: true, icon: '红', cls: 'xiaohongshu' },
+        { name: '微信公众号', fans: '3-15万', freq: '周更2-3次', active: true, icon: '微', cls: 'wechat' },
+        { name: '视频号', fans: '5-20万', freq: '日更', active: true, icon: '视', cls: 'video' },
+        { name: '快手', fans: '未发现', freq: '-', active: false, icon: '快', cls: 'kuaishou' },
+      ]
+    },
+    reputation: {
+      score: 72,
+      sentiment: '中性',
+      positives: ['性价比高', '包装精美', '发货快'],
+      negatives: ['效果不明显', '客服慢'],
+      complaints: '月均50-100条',
+      hasNegativeNews: false,
+    },
+    diffs: [
+      { type: 'minor', field: '营收规模', desc: '口述年营收约5000万，公开数据估算月销2000-3000万（年约2.5-3.5亿），可能存在统计口径差异，建议进一步核实实际营收构成。' },
+      { type: 'minor', field: '内容团队', desc: '口述3人内容团队，但公开信息显示在4个平台有活跃账号且更新频率较高，推测实际内容产能可能超出3人规模，或有外部代运营支持。' },
+      { type: 'consistent', field: '基础信息', desc: '成立时间 / 人员规模 / 口碑情况与公开信息基本吻合，信息可信度较高。' },
+    ]
+  }
+};
+
+// ============ SCORE RING ANIMATION ============
+function animateScore() {
+  const score = reportData.totalScore;
+  const ring = document.getElementById('scoreRing');
+  const dot = document.getElementById('scoreDot');
+  const radius = 72;
+  const cx = 86;
+  const cy = 86;
+  const circumference = 2 * Math.PI * radius;
+  const progress = score / 100;
+  const offset = circumference - progress * circumference;
+  
+  setTimeout(() => {
+    ring.style.strokeDashoffset = offset;
+    // 计算进度端点位置，-90度起点，顺时针
+    const angle = -90 + progress * 360;
+    const radian = (angle * Math.PI) / 180;
+    const dotX = cx + radius * Math.cos(radian);
+    const dotY = cy + radius * Math.sin(radian);
+    dot.setAttribute('cx', dotX);
+    dot.setAttribute('cy', dotY);
+    setTimeout(() => dot.classList.add('visible'), 100);
+  }, 300);
+  
+  // Number animation
+  const scoreEl = document.getElementById('totalScore');
+  let current = 0;
+  const duration = 1800;
+  const steps = 60;
+  const increment = score / steps;
+  let step = 0;
+  
+  const timer = setInterval(() => {
+    step++;
+    current = Math.min(Math.round(increment * step), score);
+    scoreEl.textContent = current;
+    if (step >= steps) clearInterval(timer);
+  }, duration / steps);
+}
+
+// ============ RADAR CHART ============
+function initRadarLegend() {
+  const legend = document.getElementById('radarLegend');
+  legend.innerHTML = reportData.radar.map(item => `
+    <div class="legend-item">
+      <div class="legend-dot"></div>
+      <span class="legend-name">${item.name}</span>
+      <span class="legend-score">${item.score}</span>
+    </div>
+  `).join('');
+}
+
+function animateRadar() {
+  const centerX = 200, centerY = 200, radius = 140;
+  const points = [];
+  const angles = [270, 30, 90, 150, 210]; // top, right-top, right-bottom, bottom, left-bottom (in degrees)
+  
+  reportData.radar.forEach((item, i) => {
+    const angle = (angles[i] * Math.PI) / 180;
+    const r = (item.score / 100) * radius;
+    const x = centerX + r * Math.cos(angle);
+    const y = centerY + r * Math.sin(angle);
+    points.push({ x, y });
+  });
+  
+  const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+  const radarData = document.getElementById('radarData');
+  const radarPoints = document.querySelectorAll('.radar-point');
+  
+  setTimeout(() => {
+    radarData.style.transition = 'all 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+    radarData.setAttribute('points', pointsStr);
+    
+    radarPoints.forEach((circle, i) => {
+      circle.style.transition = `all 1.5s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.1}s`;
+      circle.setAttribute('cx', points[i].x);
+      circle.setAttribute('cy', points[i].y);
+    });
+  }, 500);
+}
+
+// ============ TOGGLE FUNCTIONS ============
+function toggleBottleneck(header) {
+  const item = header.parentElement;
+  item.classList.toggle('expanded');
+}
+
+function toggleModule(header) {
+  const item = header.parentElement;
+  item.classList.toggle('expanded');
+}
+
+// ============ PRICING TABS ============
+function initPricingTabs() {
+  const tabs = document.querySelectorAll('.pricing-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      
+      // Update tabs
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Update content
+      document.querySelectorAll('.pricing-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`tab-${target}`).classList.add('active');
+      
+      // Animate price number
+      const priceEl = document.querySelector(`#tab-${target} .price-num`);
+      if (priceEl) animatePriceNumber(priceEl);
+    });
+  });
+}
+
+function animatePriceNumber(el) {
+  const target = parseInt(el.dataset.target);
+  let current = 0;
+  const duration = 800;
+  const steps = 40;
+  const increment = target / steps;
+  let step = 0;
+  
+  el.textContent = '0';
+  
+  const timer = setInterval(() => {
+    step++;
+    current = Math.min(Math.round(increment * step), target);
+    el.textContent = current.toLocaleString();
+    if (step >= steps) clearInterval(timer);
+  }, duration / steps);
+}
+
+// ============ SCROLL ANIMATIONS ============
+function initScrollAnimations() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        
+        // Trigger radar animation when visible
+        if (entry.target.querySelector('#radarChart')) {
+          animateRadar();
+        }
+      }
+    });
+  }, { threshold: 0.1 });
+  
+  document.querySelectorAll('.fade-in').forEach(el => {
+    observer.observe(el);
+  });
+}
+
+// ============ SHARE MODAL ============
+function openShareModal() {
+  document.getElementById('shareModal').classList.add('active');
+}
+
+function closeShareModal() {
+  document.getElementById('shareModal').classList.remove('active');
+}
+
+function confirmShare() {
+  // Placeholder for actual share logic
+  alert('分享功能已触发！\n\n在实际部署中，这里会调用分享接口将报告发送给范总。');
+  closeShareModal();
+}
+
+// Close modal on overlay click
+document.getElementById('shareModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeShareModal();
+});
+
+// ============ NUMBER COUNT ANIMATION ============
+function animateCounters() {
+  const counters = document.querySelectorAll('.metric-value');
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.target.parentElement.classList.contains('metric-card')) {
+        // Price metrics don't need separate counter animation
+      }
+    });
+  }, { threshold: 0.5 });
+  
+  counters.forEach(counter => observer.observe(counter));
+}
+
+// ============ COMPANY RESEARCH ANIMATIONS ============
+function initCompanyResearch() {
+  const data = reportData.companyResearch;
+  if (!data) return;
+  
+  // 填充基本信息
+  document.getElementById('researchFounded').textContent = data.profile.founded;
+  document.getElementById('researchCapital').textContent = data.profile.capital;
+  document.getElementById('researchEmployees').textContent = data.profile.employees;
+  document.getElementById('researchLocation').textContent = data.profile.location;
+  document.getElementById('researchMainProduct').textContent = data.product.main;
+  document.getElementById('researchSku').textContent = data.product.sku;
+  document.getElementById('researchPrice').textContent = data.product.price;
+  document.getElementById('researchSales').textContent = data.product.sales;
+  document.getElementById('researchContentLevel').textContent = data.content.level;
+  document.getElementById('researchReputationTag').textContent = data.reputation.sentiment;
+  document.getElementById('reputationScore').textContent = data.reputation.score;
+  
+  // 填充差异统计
+  const diffs = data.diffs;
+  const minorCount = diffs.filter(d => d.type === 'minor').length;
+  const majorCount = diffs.filter(d => d.type === 'major').length;
+  document.getElementById('diffCount').textContent = diffs.length;
+  document.getElementById('diffMajorCount').textContent = majorCount;
+  
+  // 如果没有差异，隐藏差异提示条
+  if (diffs.length === 0 || (minorCount === 0 && majorCount === 0)) {
+    document.getElementById('diffAlert').style.display = 'none';
+  }
+}
+
+function animateConfidence() {
+  const score = reportData.companyResearch.confidenceScore;
+  const fill = document.getElementById('confidenceFill');
+  const numEl = document.getElementById('confidenceNum');
+  
+  // 进度条动画
+  setTimeout(() => {
+    fill.style.width = score + '%';
+  }, 300);
+  
+  // 数字动画
+  let current = 0;
+  const duration = 1500;
+  const steps = 50;
+  const increment = score / steps;
+  let step = 0;
+  
+  const timer = setInterval(() => {
+    step++;
+    current = Math.min(Math.round(increment * step), score);
+    numEl.textContent = current;
+    if (step >= steps) clearInterval(timer);
+  }, duration / steps);
+}
+
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => {
+  // Init data
+  document.getElementById('companyName').textContent = reportData.company;
+  document.getElementById('reportDate').textContent = `诊断日期：${reportData.date}`;
+  document.getElementById('scoreLevel').textContent = reportData.scoreLevel;
+  document.getElementById('maturityLevel').textContent = reportData.maturityLevel;
+  document.getElementById('conclusionText').textContent = reportData.conclusion;
+  document.getElementById('suggestionText').innerHTML = reportData.suggestion;
+  
+  // Init components
+  initCompanyResearch();
+  initRadarLegend();
+  initPricingTabs();
+  initScrollAnimations();
+  
+  // Animate hero score after page load
+  setTimeout(animateScore, 500);
+  
+  // Animate confidence bar (企业背调可信度)
+  setTimeout(animateConfidence, 700);
+  
+  // Animate first tab price
+  setTimeout(() => {
+    const firstPriceEl = document.querySelector('#tab-basic .price-num');
+    if (firstPriceEl) animatePriceNumber(firstPriceEl);
+  }, 800);
+});
+</script>
+</body>
+</html>

@@ -37,6 +37,7 @@ from ontology import (
 from calculate_score import calculate_score
 from calculate_scenarios import calculate_module_scores
 from calculate_roi import calculate_content_growth_roi
+from company_research import CompanyResearcher
 
 
 # ============================================================
@@ -66,6 +67,9 @@ class SessionState:
     company_info: Dict[str, Any] = field(default_factory=dict)
     industry_type: str = "default"
 
+    # 企业背调结果（v2.0新增，前置任务）
+    company_research: Dict[str, Any] = field(default_factory=dict)
+
     # 中间计算结果
     score_result: Dict[str, Any] = field(default_factory=dict)
     product_type_result: Dict[str, Any] = field(default_factory=dict)
@@ -88,6 +92,7 @@ class SessionState:
             "task_statuses": self.task_statuses,
             "company_info": self.company_info,
             "industry_type": self.industry_type,
+            "company_research": self.company_research,
             "score_result": self.score_result,
             "product_type_result": self.product_type_result,
             "trust_path_result": self.trust_path_result,
@@ -171,6 +176,113 @@ class BaseTask:
 # ============================================================
 # 具体任务实现（v2.0 内容增长体系）
 # ============================================================
+
+class CompanyResearchTask(BaseTask):
+    """企业背调 - 诊断流程第一步，联网获取企业真实信息"""
+    name = "company_research"
+    label = "企业背调"
+    description = "联网搜索公司/产品/内容/口碑信息，与用户口述交叉验证"
+    dependencies = []
+
+    def run(self) -> Dict[str, Any]:
+        info = self.state.company_info
+        company_name = info.get("company_name", "")
+        product_name = info.get("product_name", "")
+        industry_type = self.state.industry_type
+
+        if not company_name:
+            # 没有公司名，跳过背调
+            self.state.company_research = {
+                "skipped": True,
+                "reason": "缺少公司名称",
+                "confidence_score": 0,
+                "research_mode": "skipped",
+            }
+            return {"status": "skipped", "reason": "缺少公司名称"}
+
+        try:
+            researcher = CompanyResearcher(company_name, product_name, industry_type)
+            import asyncio
+            result = asyncio.run(researcher.research())
+
+            # 执行交叉验证
+            researcher.cross_validate(info)
+
+            # 保存背调结果到 state
+            self.state.company_research = result.to_dict()
+
+            # 将背调数据注入 company_info，作为评分的客观基准
+            self._inject_research_to_company_info(result, info)
+
+            return self.state.company_research
+
+        except Exception as e:
+            # 背调失败不阻塞主流程，降级为纯口述模式
+            print(f"[企业背调] 执行失败，降级为纯口述模式: {e}")
+            self.state.company_research = {
+                "failed": True,
+                "error": str(e),
+                "confidence_score": 0,
+                "research_mode": "fallback_none",
+            }
+            return {"status": "completed_with_warning", "warning": f"背调失败: {e}"}
+
+    def _inject_research_to_company_info(self, result, info: Dict):
+        """将背调数据注入 company_info，作为评分的客观基准"""
+        profile = result.company_profile
+        product = result.product_status
+        content = result.content_presence
+        reputation = result.reputation
+
+        # 1. 公司规模信息（用于评分估算校准）
+        if profile.employee_count_estimate and not info.get("_research_employee_verified"):
+            # 从范围中提取一个中间值作为校准参考
+            import re
+            nums = re.findall(r'\d+', profile.employee_count_estimate.replace(",", ""))
+            if len(nums) >= 2:
+                est = (int(nums[0]) + int(nums[1])) // 2
+                info["_research_employee_est"] = est
+            elif len(nums) == 1:
+                info["_research_employee_est"] = int(nums[0])
+
+        # 2. 注册资本（侧面反映企业实力）
+        if profile.registered_capital_wan:
+            info["_research_registered_capital"] = profile.registered_capital_wan
+
+        # 3. 内容平台表现（直接影响 content_capability 评分）
+        if content.overall_level and not info.get("_research_content_verified"):
+            level_map = {
+                "强势": {"has_short_video": True, "has_livestream": True,
+                         "content_team_size_hint": 8, "content_level_hint": "high"},
+                "活跃": {"has_short_video": True, "has_livestream": True,
+                         "content_team_size_hint": 4, "content_level_hint": "mid_high"},
+                "一般": {"has_short_video": True, "has_livestream": False,
+                         "content_team_size_hint": 2, "content_level_hint": "mid"},
+                "薄弱": {"has_short_video": False, "has_livestream": False,
+                         "content_team_size_hint": 1, "content_level_hint": "low"},
+                "未发现": {"has_short_video": False, "has_livestream": False,
+                           "content_team_size_hint": 0, "content_level_hint": "none"},
+            }
+            if content.overall_level in level_map:
+                # 只在用户没有明确提供时用背调数据补充
+                for key, val in level_map[content.overall_level].items():
+                    if key not in info or not info[key]:
+                        info[key] = val
+            info["_research_content_verified"] = True
+
+        # 4. 产品 SKU 数量
+        if product.sku_count_estimate:
+            info["_research_sku_count"] = product.sku_count_estimate
+
+        # 5. 口碑信息（用于信任构建能力评估）
+        if reputation.overall_sentiment:
+            info["_research_reputation"] = reputation.overall_sentiment
+            if reputation.has_negative_news:
+                info["_research_has_negative"] = True
+
+        info["_research_confidence"] = result.confidence_score
+        info["_research_mode"] = result.research_mode
+
 
 class MaturityScoreTask(BaseTask):
     """内容增长成熟度评分"""
@@ -399,6 +511,7 @@ class ContentGrowthPipeline:
     """内容增长流水线"""
 
     TASK_CLASSES = {
+        "company_research": CompanyResearchTask,
         "maturity_score": MaturityScoreTask,
         "product_type": ProductTypeTask,
         "trust_path": TrustPathTask,
@@ -409,8 +522,9 @@ class ContentGrowthPipeline:
         "pitfall_check": PitfallCheckTask,
     }
 
-    # 完整内容增长流程（8步）
+    # 完整内容增长流程（9步，含企业背调）
     FULL_FLOW = [
+        "company_research",
         "maturity_score",
         "product_type",
         "trust_path",
@@ -420,8 +534,9 @@ class ContentGrowthPipeline:
         "deliverables_generation",
     ]
 
-    # 仅诊断流程（前4步）
+    # 仅诊断流程（前5步，含企业背调）
     DIAGNOSIS_ONLY_FLOW = [
+        "company_research",
         "maturity_score",
         "product_type",
         "trust_path",
@@ -431,6 +546,7 @@ class ContentGrowthPipeline:
 
     # 内容套餐流程（短视频+私域）
     CONTENT_PACKAGE_FLOW = [
+        "company_research",
         "maturity_score",
         "product_type",
         "trust_path",
@@ -473,6 +589,9 @@ class ContentGrowthPipeline:
         return {
             "current_task": self.state.current_task,
             "task_statuses": self.state.task_statuses,
+            "has_company_research": bool(self.state.company_research),
+            "research_mode": self.state.company_research.get("research_mode", "none"),
+            "research_confidence": self.state.company_research.get("confidence_score", 0),
             "has_score": bool(self.state.score_result),
             "has_roi": bool(self.state.roi_result),
             "has_modules": bool(self.state.module_result),
@@ -665,11 +784,12 @@ def _run_self_test():
     print("\n[4/4] 测试 full_content_growth...")
     save_path = "/tmp/test_content_growth_state.json"
     r4 = run_content_growth(test_company, "experiential", save_path)
-    assert r4["completed"] == 7
+    assert r4["completed"] == 8, f"预期8个任务完成，实际{r4['completed']}个"
     assert os.path.exists(save_path)
     assert "deliverables_generation" in r4["task_results"]
     deliverables = r4["task_results"]["deliverables_generation"]["result"]
-    print(f"  ✓ 完整方案通过, 7个任务全部完成")
+    print(f"  ✓ 完整方案通过, 8个任务全部完成")
+    print(f"  ✓ 企业背调完成, 模式: {r4['state_summary'].get('research_mode', 'unknown')}")
     print(f"  ✓ 交付物: {deliverables['total_modules']}个模块, {deliverables['total_deliverables']}份文件")
     print(f"  ✓ 推荐档位: {deliverables['pricing']['recommended_label']} ({deliverables['pricing']['recommended_price']})")
     print(f"  ✓ 状态持久化通过, 保存到: {save_path}")
